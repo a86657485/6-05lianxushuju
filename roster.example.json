@@ -1,0 +1,62 @@
+[
+  {
+    "id": "example-601-1",
+    "classId": "601",
+    "name": "样例观察员11"
+  },
+  {
+    "id": "example-601-2",
+    "classId": "601",
+    "name": "样例观察员12"
+  },
+  {
+    "id": "example-602-1",
+    "classId": "602",
+    "name": "样例观察员21"
+  },
+  {
+    "id": "example-602-2",
+    "classId": "602",
+    "name": "样例观察员22"
+  },
+  {
+    "id": "example-603-1",
+    "classId": "603",
+    "name": "样例观察员31"
+  },
+  {
+    "id": "example-603-2",
+    "classId": "603",
+    "name": "样例观察员32"
+  },
+  {
+    "id": "example-604-1",
+    "classId": "604",
+    "name": "样例观察员41"
+  },
+  {
+    "id": "example-604-2",
+    "classId": "604",
+    "name": "样例观察员42"
+  },
+  {
+    "id": "example-605-1",
+    "classId": "605",
+    "name": "样例观察员51"
+  },
+  {
+    "id": "example-605-2",
+    "classId": "605",
+    "name": "样例观察员52"
+  },
+  {
+    "id": "example-606-1",
+    "classId": "606",
+    "name": "样例观察员61"
+  },
+  {
+    "id": "example-606-2",
+    "classId": "606",
+    "name": "样例观察员62"
+  }
+]

@@ -1,0 +1,5 @@
+roster.json
+runtime/
+*.sqlite*
+node_modules/
+.DS_Store

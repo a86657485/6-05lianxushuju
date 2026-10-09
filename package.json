@@ -1,0 +1,11 @@
+{
+  "name": "lesson5-noise-data-station",
+  "version": "1.0.0",
+  "private": true,
+  "description": "六年级第5课 连续变化的数据 · 噪声监测数据站",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --no-warnings server.cjs",
+    "test": "node --no-warnings --test tests/*.test.*"
+  }
+}

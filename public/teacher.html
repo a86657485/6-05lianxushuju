@@ -1,0 +1,18 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>第5课 · 班级学习大屏</title><link rel="stylesheet" href="/style.css?v=1"><script src="/rules.js?v=1" defer></script><script type="module" src="/teacher.mjs?v=1"></script></head><body>
+<header class="site-head"><a class="brand" href="/teacher">噪声监测数据站<small>第5课 · 教师大屏（免密码，仅教师设备）</small></a><div class="head-actions"><a href="/test" class="teacher-test-link">进入教师测试模式 ↗</a></div></header>
+<main id="dashboard" class="teacher-wrap">
+<div class="teacher-tools"><h1>这一课，学生走到哪了？</h1><label>当前班级<select id="teacher-class"></select></label><input id="teacher-search" aria-label="查找姓名" placeholder="查找姓名（只影响下方明细）"><label class="check"><input id="unfinished" type="checkbox">只看未完成</label><button id="class-export">导出班级记录</button><button id="new-round">开启本班新轮次</button></div>
+<p id="class-status" class="note" role="status"></p>
+<section class="summary" id="summary"></section>
+<section id="class-charts" class="class-charts" aria-label="当前班级学习图表"><div id="status-chart" class="chart-card"></div><div id="stage-chart" class="chart-card"></div><div id="evidence-chart" class="chart-card chart-wide"></div><div id="quiz-chart" class="chart-card chart-wide"></div></section>
+<p id="chart-filter" class="note" role="status"></p>
+<section id="diagnosis" class="teacher-detail"></section>
+<div class="table-box"><table><thead><tr><th>姓名</th><th>当前关卡</th><th>数据流动</th><th>波形散点</th><th>生活连续量</th><th>阈值</th><th>迁移设计</th><th>必做进度</th><th>通关积分</th><th>考核 首次/最近</th><th>最近同步</th><th>详情</th></tr></thead><tbody id="student-rows"></tbody></table></div>
+<section id="student-detail" class="teacher-detail" hidden></section>
+<section class="teacher-live"><div class="teacher-tools"><h2>全班一起观察：教室噪声监测（教材“拓展与提升”）</h2><button id="mic-start" class="primary">开启教师机麦克风</button><button id="mic-stop">停止采声</button><button id="mic-calibrate">重新校准</button></div>
+<p>先请学生在第2关把声音来源切到“观察教师现场”，再开启麦克风。请3—4名同学在讲台附近用不同音量说话；全班讨论“大家能接受的音量”，把阈值滑块拖到那个位置，观察超过阈值时的提示。无需全班喊叫。</p>
+<label class="knob-row">现场阈值（相对响度）<input id="live-th" type="range" min="5" max="95" step="1" value="60"><b id="live-th-val">60</b></label>
+<div class="live-board"><div id="live-chart"></div><div class="live-side"><span class="alarm-lamp big" id="live-lamp"></span><p id="live-level" class="live-level">—</p><p id="live-count">提示 0 次</p></div></div>
+<p id="mic-status" role="status">尚未开启麦克风。</p><p id="live-sync" class="note"></p>
+<p class="note">只计算相对响度（0—100），不是分贝，也不录音、不上传原始声音。现场数值受麦克风位置与灵敏度影响，课前请在教室校准。</p></section>
+</main></body></html>

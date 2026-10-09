@@ -1,0 +1,49 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>噪声监测数据站 · 连续变化的数据</title><link rel="stylesheet" href="/style.css?v=1"><script src="/rules.js?v=1" defer></script><script type="module" src="/app.mjs?v=1"></script></head><body>
+<header class="site-head"><a class="brand" href="/">小递的噪声监测数据站<small>六年级 · 第5课 连续变化的数据</small></a><div class="head-actions"><span id="identity"></span><button id="switch" hidden>切换学生</button></div></header>
+
+<section id="login" class="welcome"><div class="welcome-copy"><p class="eyebrow">数据 · 连续量 · 阈值</p><h1>数据一直在变，<br>系统怎样知道该做什么？</h1><p>跟着小递走进小区广场、教室和种植园。<br>先想一想，再用曲线和实验检验你的想法。</p><div class="welcome-art" id="welcome-art"></div></div>
+<form id="login-form" class="login-panel"><h2>今天，你是数据观察员</h2><p>选好班级和姓名，继续自己的探索。</p>
+<label>班级<select id="class" required><option value="">请选择六年级班级</option></select></label>
+<label>找姓名<input id="search" placeholder="输入姓名查找" autocomplete="off"></label>
+<label>姓名<select id="name"><option value="">请先选班级</option></select></label>
+<label class="check"><input type="checkbox" id="manual">名单里没有我</label>
+<label id="manual-box" hidden>手动填写姓名<input id="manual-name" maxlength="30" autocomplete="off"></label>
+<div id="same-name" class="same-name" hidden></div>
+<p id="identity-confirm" class="note">班级和姓名用于保存你的学习记录（课堂选名，不是密码账户）。</p>
+<button class="primary" type="submit" id="login-submit">确认身份，开始探索</button><p id="login-error" role="alert"></p>
+<a class="subtle" href="/demo">先看看演示（不保存记录）→</a></form></section>
+
+<main id="learning" hidden>
+<div class="progress-line"><nav id="stages" aria-label="学习关卡"></nav><div><b id="points">0 积分</b><small id="sync-status" role="status"></small></div></div>
+<div id="test-tools" class="test-tools" hidden><b>教师测试 · 自由选关 · 不写入班级数据</b><button id="test-answer">本关标准操作与答案</button><button id="fill-example">载入本关达标示例</button><button id="test-bank">查看40题题库答案</button><button id="test-quiz">试做20题测试卷</button><button id="test-reward">直接试玩考后挑战</button><button id="test-reset">清空测试状态</button></div>
+<p id="demo-bar" class="demo-bar" hidden>演示模式：可以体验全部关卡，记录只留在这个页面，不进入班级数据。</p>
+<section id="test-answer-panel" class="test-answer-panel" hidden></section>
+
+<section id="stage-page">
+<div class="lesson-heading"><div><p id="chapter" class="eyebrow"></p><h1 id="stage-title"></h1><p id="stage-goal"></p></div></div>
+<nav id="learning-steps" class="learning-steps" aria-label="本关学习步骤"></nav>
+<div class="experiment-layout">
+ <div class="experiment">
+  <div id="scene-context" class="scene-context"><div class="xiaodi" aria-hidden="true"></div><div><p id="story-text" class="story-text"></p><p id="scene-observation" class="scene-observation"></p></div></div>
+  <div id="scene" class="scene"></div>
+  <div id="experiment-actions" class="experiment-actions"><p id="experiment-instruction" class="experiment-instruction" role="status"></p><div id="controls" class="controls"></div><p id="say" class="say" role="status"></p><p id="scene-note" class="note"></p></div>
+ </div>
+ <aside class="task-panel">
+  <p id="step-label" class="eyebrow"></p><h2 id="step-title"></h2><p id="step-instruction" class="step-instruction"></p>
+  <div id="prediction-panel"></div>
+  <div id="experiment-progress" hidden></div>
+  <details id="trial-details" class="trial-details" hidden><summary id="trial-summary"></summary><ol id="trials" class="trial-list"></ol></details>
+  <div id="explain-panel" hidden><div id="explain"></div><div id="transfer" class="transfer"></div></div>
+  <div class="feedback" id="feedback" role="status"></div>
+  <div class="task-actions"><button id="step-next" class="primary" hidden></button><button id="submit" class="primary" hidden>检验我的解释</button><button id="next" class="primary" hidden></button></div>
+  <div class="support"><button id="step-back" class="subtle" hidden></button><button id="hint" class="subtle">给我一点提示</button><button id="story-toggle" class="subtle">看情境</button><button id="fresh" class="subtle">本关重新做实验</button></div>
+  <p id="hint-text" class="hint-text" role="status"></p>
+ </aside>
+</div></section>
+<section id="quiz-page" hidden></section>
+<section id="end-page" hidden></section>
+</main>
+<div id="toast" class="toast" role="status" hidden></div>
+<footer>用操作发现规律，用数据检验想法。所有曲线与读数如未注明“现场”均为教学仿真数据；时间与学习效果仍需课堂试用校准。</footer>
+</body></html>
