@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;overflow:hidden}#c svg{display:block;width:1280px;height:720px}</style><script src="lib.js"></script><script src="scenes.js"></script></head><body><div id="c"></div>
+<script>
+const FPS = 25, DUR = 22;
+function smooth(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
+function level(t) {
+  const base = 37.5 + 0.8 * Math.sin(t * 1.7) + 0.5 * Math.sin(t * 4.1);
+  if (t < 2.5) return base;
+  const ramp = 29 * smooth((t - 2.5) / 12), fade = t > 17 ? smooth((t - 17) / 3.5) : 0;
+  const beat = 1.6 * Math.max(0, Math.sin(t * Math.PI * 4)) + 1.1 * Math.sin(t * 2.3);
+  return base + (ramp + beat * smooth((t - 2.5) / 2)) * (1 - fade);
+}
+const LIMIT = 55;
+let firstCross = null; for (let i = 0; i < DUR * FPS; i++) { const t = i / FPS; if (level(Math.floor(t * 5) / 5) > LIMIT) { firstCross = t; break; } }
+window.META = { firstCross, LIMIT };
+function frame(t) {
+  const S = Scenes, A = Art;
+  const shownT = Math.floor(t * 5) / 5, v = level(shownT);
+  const alert = firstCross !== null && t >= firstCross && t < 17.2;
+  const trace = []; for (let k = Math.max(0, t - 12); k <= t; k += 0.2) trace.push(level(k));
+  const dance = t < 2.5 ? 0 : t > 17 ? Math.max(0, 1 - (t - 17) / 2) : Math.min(1, (t - 2.5) / 1.2);
+  let svg = S.nightSquare({ t, value: v.toFixed(1), alert, dance, trace, traceLen: 60, line: LIMIT });
+  // 下方大曲线面板
+  const px = 60, py = 180, pw = 820, ph = 270, lo = 30, hi = 80;
+  const pts = []; for (let k = 0; k <= t; k += 0.1) pts.push([k, level(k)]);
+  const X = k => px + 30 + k / DUR * (pw - 60), Y = y => py + ph - 30 - (y - lo) / (hi - lo) * (ph - 60);
+  let panel = `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="22" fill="#0d1622" fill-opacity=".86" stroke="#5fd3ff" stroke-opacity=".5" stroke-width="3"/>
+    <text x="${px + 30}" y="${py + 44}" fill="#9fd8ff" font-family="${A.FONT}" font-size="30" font-weight="700">声音的变化</text>
+    <line x1="${px + 30}" x2="${px + pw - 30}" y1="${Y(LIMIT)}" y2="${Y(LIMIT)}" stroke="#ff3b30" stroke-width="4" stroke-dasharray="16 10"/>
+    <text x="${px + pw - 40}" y="${Y(LIMIT) - 12}" text-anchor="end" fill="#ff6b5e" font-family="${A.FONT}" font-size="34" font-weight="800">？</text>`;
+  if (pts.length > 1) panel += `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ')}" fill="none" stroke="#5fd3ff" stroke-width="5" stroke-linejoin="round"/><circle cx="${X(t)}" cy="${Y(level(t))}" r="10" fill="#fff"/>`;
+  // 时间牌
+  const tm = 30 + Math.floor(t * 2), clock = `${20 + Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`;
+  let over = `<g><rect x="60" y="50" width="330" height="100" rx="20" fill="#0d1622" fill-opacity=".8"/><text x="90" y="118" fill="#fff" font-family="${A.FONT}" font-size="54" font-weight="800">🌙 ${clock}</text></g>`;
+  if (t < 2.4) over += `<text x="960" y="640" text-anchor="middle" fill="#fff" font-family="${A.FONT}" font-size="64" font-weight="800" opacity="${Math.min(1, t * 2).toFixed(2)}">晚上，小区广场</text>`;
+  if (alert) {
+    const pop = Math.min(1, (t - firstCross) * 4), sc = 0.8 + 0.2 * pop;
+    over += `<g transform="translate(1480 690) scale(${sc.toFixed(3)})" opacity="${pop.toFixed(2)}"><path d="M-60 -90 L-10 -150 L30 -90z" fill="#ff3b30"/><rect x="-400" y="-90" width="800" height="180" rx="30" fill="#fff" stroke="#ff3b30" stroke-width="10"/><text x="0" y="-10" text-anchor="middle" fill="#c0483a" font-family="${A.FONT}" font-size="62" font-weight="900">⚠ 噪声提醒</text><text x="0" y="58" text-anchor="middle" fill="#173d50" font-family="${A.FONT}" font-size="38" font-weight="700">已通知小区物业管理处</text></g>`;
+  }
+  if (t >= 17.4) {
+    const op = Math.min(1, (t - 17.4) * 1.5);
+    over += `<rect width="1920" height="1080" fill="#0b1630" opacity="${(op * .78).toFixed(2)}"/><g opacity="${op.toFixed(2)}"><text x="960" y="470" text-anchor="middle" fill="#fff" font-family="${A.FONT}" font-size="86" font-weight="900">屏幕是怎么知道</text><text x="960" y="600" text-anchor="middle" fill="#ffd36b" font-family="${A.FONT}" font-size="86" font-weight="900">“该提醒了”？</text>${A.xiaodi(1450, 640, 3)}</g>`;
+  }
+  svg = svg.replace('</svg>', panel + over + '</svg>');
+  document.getElementById('c').innerHTML = svg;
+}
+</script></body></html>
