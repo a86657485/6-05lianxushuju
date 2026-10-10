@@ -145,3 +145,30 @@ export function renderClassCharts(st, { stageFilter = null, misTag = null, R = g
     pred: predictionChart(st), hint: hintChart(st), quiz: quizChart(st), timeline: timelineChart(st), threshold: thresholdChart(st, R), garden: gardenChart(st)
   };
 }
+
+/**
+ * 奖励小游戏（考核≥80分解锁）：解锁/玩过人数、四关“我发现”首选正确率、学生最后一次设的阈值分布（绿色=合理区间）、班级排行。
+ * 数据来自服务端重放后的成绩，不是学生自报。
+ */
+const GAME_LEVELS = [
+  { id: 'garden', name: '①花园 开泵线', bins: [[0, 24, '<25%'], [25, 34, '25–34'], [35, 54, '35–54', true], [55, 64, '55–64'], [65, 100, '≥65']], val: c => c.a?.last },
+  { id: 'lamp', name: '②路灯 两线间隔', bins: [[0, 0, '0（一条线）'], [1, 49, '10–49'], [50, 400, '≥50', true]], val: c => c.b && c.a ? c.b.last - c.a.last : null },
+  { id: 'sample', name: '③采样间隔', bins: [[1, 1, '每1秒'], [3, 3, '每3秒', true], [10, 10, '每10秒']], val: c => c.k?.last },
+  { id: 'alarm', name: '④报警线', bins: [[0, 54, '<55'], [55, 58, '55–58'], [59, 64, '59–64', true], [65, 100, '≥65']], val: c => c.a?.last }
+];
+export function gameChart(students = []) {
+  const withGate = students.filter(s => s.gameGate);
+  const unlocked = withGate.filter(s => s.gameGate.unlocked).length, played = students.filter(s => s.game?.plays).length;
+  const head = `<h2>奖励小游戏 · 小递夜巡（考核≥80分解锁）</h2><p class="chart-subtitle">解锁 ${unlocked}/${students.length} 人 · 玩过 ${played} 人。成绩由服务端按操作记录重放计算；阈值分布取每人每关最后一局，绿色为合理区间。</p>`;
+  if (!played) return head + `<p class="no-evidence small">${unlocked ? '已有学生解锁，尚无人完成一局' : '尚无学生解锁（最近一次考核需≥80分）'}</p>`;
+  const lastRun = (s, id) => (s.game?.runs || []).filter(r => r.level === id).at(-1);
+  const cols = GAME_LEVELS.map(L => {
+    const vals = students.map(s => lastRun(s, L.id)).filter(Boolean).map(r => L.val(r.controls || {})).filter(v => v != null);
+    const disc = students.map(s => s.game?.discoveries?.[L.id]).filter(Boolean);
+    const rows = L.bins.map(([a, b, lab, good]) => { const n = vals.filter(v => v >= a && v <= b).length; return `<div class="g-bin"><span>${lab}</span><i style="width:${w(n, vals.length)}%;background:${good ? C.done : C.blue2}"></i><b>${n}</b></div>`; }).join('');
+    return `<div class="g-col"><h3>${L.name}</h3>${vals.length ? rows : '<p class="chart-subtitle">还没人玩到这一关</p>'}<p class="chart-subtitle">“我发现”首选正确 ${disc.filter(d => d.firstCorrect).length}/${disc.length}</p></div>`;
+  }).join('');
+  const board = students.filter(s => s.game?.total > 0).sort((a, b) => b.game.total - a.game.total).slice(0, 5)
+    .map((s, i) => `<li><b>${i + 1}</b> ${esc(s.student.name)} <span>${s.game.total}分 ★${s.game.stars}</span></li>`).join('');
+  return head + `<div class="g-wrap">${cols}<div class="g-col"><h3>本班排行 前5</h3><ol class="g-board">${board}</ol></div></div>`;
+}

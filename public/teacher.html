@@ -1,9 +1,9 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>第5课 · 班级学习数据大屏</title><link rel="stylesheet" href="/style.css?v=1"><link rel="stylesheet" href="/teacher-dash.css?v=2"><script src="/rules.js?v=3" defer></script><script type="module" src="/teacher.mjs?v=2"></script></head><body class="dash-body">
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>第5课 · 班级学习数据大屏</title><link rel="stylesheet" href="/style.css?v=1"><link rel="stylesheet" href="/teacher-dash.css?v=3"><script src="/rules.js?v=3" defer></script><script type="module" src="/teacher.mjs?v=3"></script></head><body class="dash-body">
 <header class="dash-head">
   <div class="dash-brand"><b>噪声监测数据站 · 学习证据大屏</b><small>第5课《连续变化的数据》 · 免密码，仅教师设备</small></div>
   <label class="dash-class">班级<select id="teacher-class"></select></label>
   <p id="class-status" class="dash-status" role="status">加载中…</p>
-  <div class="dash-actions"><a id="demo-toggle" class="dash-btn" href="/teacher?demo=1">看演示数据</a><button id="class-export" class="dash-btn">导出班级记录</button><button id="new-round" class="dash-btn">开启本班新轮次</button><a href="/test" class="dash-btn teacher-test-link">进入教师测试模式 ↗</a></div>
+  <div class="dash-actions"><a id="demo-toggle" class="dash-btn" href="/teacher?demo=1">看演示数据</a><button id="class-export" class="dash-btn">导出班级记录</button><button id="new-round" class="dash-btn">开启本班新轮次</button><a href="/test" class="dash-btn teacher-test-link">进入教师测试模式 ↗</a><a href="/game-test" class="dash-btn">试玩奖励小游戏 ↗</a></div>
 </header>
 <p id="demo-banner" class="demo-banner" hidden>演示模式：以下为虚构班级数据，仅供预览图表，不是任何真实学生的记录。<a href="/teacher">回到真实班级</a></p>
 <main id="dashboard" class="dash-main">
@@ -19,6 +19,7 @@
     <article id="c-threshold" class="dash-card"></article>
     <article id="c-garden" class="dash-card"></article>
   </section>
+  <section id="c-game" class="dash-panel" aria-label="奖励小游戏"></section>
   <section id="diagnosis" class="dash-panel"></section>
   <section class="dash-panel">
     <div class="dash-tools"><h2>学生明细</h2><input id="teacher-search" aria-label="查找姓名" placeholder="查找姓名（只影响明细）"><label class="check"><input id="unfinished" type="checkbox">只看未完成</label><p id="chart-filter" class="note" role="status"></p></div>

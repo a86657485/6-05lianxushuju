@@ -1,6 +1,5 @@
 /* 20题考核：提交前可改、不显示正误；提交后错题在前并给答案与解析；可重复考核。 */
 import { api, escape, uniqueId } from './sync.mjs?v=1';
-import { RewardChallenge } from './reward.mjs?v=1';
 
 export function renderExamReview(feedback) {
   const numbered = feedback.map((q, i) => ({ ...q, number: i + 1 }));
@@ -23,7 +22,7 @@ export class QuizView {
   constructor(container, { getState, mode, onState, onExit, bank }) { Object.assign(this, { container, getState, mode, onState, onExit, bank }); this.page = 0; this.answers = {}; }
   key() { const s = this.getState(); return 'lesson5-exam:' + s.student.id + ':' + s.round; }
   persist() { try { localStorage.setItem(this.key(), JSON.stringify({ examId: this.exam?.id, answers: this.answers, page: this.page })); } catch { this.note = '本机存储不足，请保持页面开启。'; } }
-  close() { this.reward?.destroy(); this.reward = null; }
+  close() {}
   async open(newPaper = false) {
     this.close(); this.result = null; this.note = '';
     try {
@@ -90,11 +89,21 @@ export class QuizView {
     this.container.innerHTML = `<div class="result-card"><p class="eyebrow">${attempts ? `本轮第 ${attempts} 次20题考核` : '测试卷反馈 · 不计成绩'}</p><h1>看看这次理解的证据</h1><p class="score">${r.score}<small>/100</small></p>
       <p>本次答对 ${r.score / 5}/20 题。一次表现不能单独证明稳定掌握；重考高分也不能代替新情境迁移。</p>
       <div class="goal-bars">${Object.entries(goals).map(([g, v]) => `<div><span>${escape(g)}</span><i style="--w:${v.total ? v.right / v.total * 100 : 0}%"></i><b>${v.right}/${v.total}</b></div>`).join('')}</div>
-      <div class="choice-row"><button id="return-study" class="primary">回到关卡，检验薄弱处</button><button id="retry-quiz">再考一次 · 新抽20题</button><button id="reward-game">考后挑战：阈值调校（选做）</button></div>
-      <section id="reward-stage" hidden></section>${renderExamReview(r.feedback)}</div>`;
+      <div class="choice-row"><button id="return-study" class="primary">回到关卡，检验薄弱处</button><button id="retry-quiz">再考一次 · 新抽20题</button></div>
+      ${gameEntry(this.mode, r.score, this.mode === 'student' ? this.getState().quizAttempts : [])}${renderExamReview(r.feedback)}</div>`;
     this.container.scrollIntoView({ block: 'start' });
     this.container.querySelector('#return-study').onclick = this.onExit;
     this.container.querySelector('#retry-quiz').onclick = () => this.open(true);
-    this.container.querySelector('#reward-game').onclick = () => { const sec = this.container.querySelector('#reward-stage'); sec.hidden = false; this.reward ||= new RewardChallenge(sec); sec.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
   }
+}
+
+/** 奖励小游戏入口：最近一次考核 ≥80 分才解锁（服务端 /api/game/status 再次判定）。 */
+export const GAME_PASS = 80;
+export function gameEntry(mode, latest, attempts = []) {
+  if (mode === 'test') return `<div class="game-entry open" id="game-entry"><b>🎮 奖励小游戏 · 小递夜巡</b><span>教师测试：不受分数限制，记录只留在本页。</span><a class="go-btn" id="game-link" href="/game-test">试玩奖励小游戏</a></div>`;
+  if (mode !== 'student') return '';
+  if (latest == null) return `<div class="game-entry locked" id="game-entry"><b>🔒 奖励小游戏 · 考核80分以上解锁</b><span>还没有参加20题考核。</span></div>`;
+  const best = attempts.length ? Math.max(...attempts.map(a => a.score)) : latest;
+  if (latest >= GAME_PASS) return `<div class="game-entry open" id="game-entry"><b>🎮 奖励小游戏已解锁</b><span>当小区自动管家：拖动阈值线，让浇水、路灯、噪声监测自动运行。</span><a class="go-btn" id="game-link" href="/game">进入奖励小游戏</a></div>`;
+  return `<div class="game-entry locked" id="game-entry"><b>🔒 奖励小游戏 · 考核80分以上解锁</b><span>这次 ${latest} 分，你的最好成绩 ${best} 分。看完错题再考一次吧。</span></div>`;
 }

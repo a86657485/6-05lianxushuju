@@ -351,3 +351,13 @@ button.place.cta{background:#1b3a5c!important}
 .star-rows li b{font-size:22px;color:#c3ccd1}.star-rows li.got{color:#173d50}.star-rows li.got b{color:#e0a200}
 @media (max-width:700px){.compare-box{grid-template-columns:1fr}.qcard.reflect .sentence{font-size:17px}.hud-stars{font-size:13px}.hud-points{display:none}}
 @media (prefers-reduced-motion:reduce){.star-burst{animation:none!important}}
+
+/* 奖励小游戏入口（考核≥80分解锁） */
+.game-entry{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:12px 0;padding:10px 14px;border-radius:14px;border:1.5px solid #3a5a7c;background:#13284a}
+.game-entry b{font-size:17px;color:#fff}
+.game-entry span{color:#cfe0ee;font-size:14px;flex:1 1 260px}
+.game-entry.open{border-color:var(--amber)}
+.game-entry.locked{opacity:.9}
+.game-entry a.go-btn{text-decoration:none;color:var(--text);border:1.5px solid #3a5a7c;display:inline-block}
+a.cta{display:inline-block}
+a.cta{background:linear-gradient(180deg,#ffe28f,#ffc94a)!important;color:#1c2a3a!important;border-color:#fff3c4!important;font-weight:800}

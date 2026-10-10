@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>小递夜巡 · 小区自动管家（奖励小游戏）</title>
+<link rel="stylesheet" href="/game/play.css?v=1">
+</head>
+<body class="nightgame">
+<header class="g-hud" id="hud" hidden>
+  <b class="g-title">小递夜巡 · 小区自动管家</b>
+  <ol class="g-pips" id="pips" aria-label="关卡"></ol>
+  <span class="g-total" id="total" title="四关最好成绩之和">0 分</span>
+  <button type="button" class="g-icon" id="sound" aria-pressed="false" title="音效（默认关闭）">🔇</button>
+  <button type="button" class="g-icon" id="help" title="再看一遍本关规则">?</button>
+  <a class="g-exit" id="exit" href="/">回巡查站</a>
+</header>
+<main class="g-main" id="main" hidden>
+  <section class="g-scene" id="scene-wrap">
+    <canvas id="scene" aria-label="场景"></canvas>
+    <div class="g-pops" id="pops" aria-live="polite"></div>
+  </section>
+  <div class="g-overlay" id="overlay"></div>
+  <aside class="g-flow" id="flow" aria-label="数据流">
+    <p class="g-flow-h">数据流 · 每一秒都在发生</p>
+    <div class="g-ipo">
+      <div class="g-box in"><span class="k">输入 · 传感器</span><b id="f-in">—</b><small id="f-in2"></small></div>
+      <i class="g-arrow" id="a1">▼</i>
+      <div class="g-box mid"><span class="k">计算 · 比较阈值</span><b id="f-cmp">—</b><small id="f-yes"></small></div>
+      <i class="g-arrow" id="a2">▼</i>
+      <div class="g-box out"><span class="k">输出 · 执行</span><b id="f-out">—</b><small id="f-out2"></small></div>
+    </div>
+    <div class="g-ctrls" id="ctrls"></div>
+    <div class="g-stats"><span>本晚 <b id="s-score">0</b> 分</span><span>连击 <b id="s-combo">0</b></span><span id="s-extra"></span></div>
+    <div class="g-time"><i id="s-time"></i></div>
+  </aside>
+  <section class="g-chart" id="chart-wrap">
+    <canvas id="chart" aria-label="传感器数据曲线，可拖动阈值线；鼠标移到曲线上可读出任意时刻的数值"></canvas>
+    <div class="g-scrub" id="scrub" hidden></div>
+  </section>
+</main>
+<p class="g-tip" id="tip" hidden></p>
+<div class="g-gate" id="gate"><p class="g-loading">正在检查解锁条件…</p></div>
+<script src="/game/night-core.js?v=1"></script>
+<script type="module" src="/game/play.mjs?v=1"></script>
+</body>
+</html>

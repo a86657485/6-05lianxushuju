@@ -2,7 +2,7 @@ import { api, download, escape } from './sync.mjs?v=1';
 import { Microphone } from './microphone.mjs?v=1';
 import { TeacherMicrophoneBridge } from './microphone-bridge.mjs?v=1';
 import { summarizeClass } from './teacher-stats.mjs?v=2';
-import { renderClassCharts } from './teacher-charts.mjs?v=2';
+import { renderClassCharts, gameChart } from './teacher-charts.mjs?v=3';
 import { makeScale, pathOf, axes, svgOpen } from './charts.mjs?v=1';
 import { activities } from './activities.mjs?v=3';
 
@@ -48,12 +48,13 @@ async function refresh() {
   }
 }
 const CARDS = { progress: 'c-progress', mastery: 'c-mastery', mis: 'c-mis', pred: 'c-pred', hint: 'c-hint', quiz: 'c-quiz', timeline: 'c-timeline', threshold: 'c-threshold', garden: 'c-garden' };
-function clearView() { for (const id of ['summary', 'diagnosis', 'student-rows', ...Object.values(CARDS)]) $(id).innerHTML = ''; $('student-detail').hidden = true; }
+function clearView() { for (const id of ['summary', 'c-game', 'diagnosis', 'student-rows', ...Object.values(CARDS)]) $(id).innerHTML = ''; $('student-detail').hidden = true; }
 function render() {
   const ss = data.students, st = stats;
   const charts = renderClassCharts(st, { stageFilter: chartStage, misTag, R });
   $('summary').innerHTML = charts.kpi;
   for (const [k, id] of Object.entries(CARDS)) $(id).innerHTML = charts[k];
+  $('c-game').innerHTML = gameChart(ss);
   document.querySelectorAll('[data-chart-stage]').forEach(b => b.onclick = () => { chartStage = chartStage === b.dataset.chartStage ? null : b.dataset.chartStage; render(); });
   document.querySelectorAll('[data-tag]').forEach(b => b.onclick = () => { misTag = misTag === b.dataset.tag ? null : b.dataset.tag; render(); });
   const q = $('teacher-search').value.trim(), unfinished = $('unfinished').checked;

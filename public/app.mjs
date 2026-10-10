@@ -7,10 +7,9 @@ import { activities, takeaways, places } from './activities.mjs?v=3';
 import { experimentClasses } from './experiments.mjs?v=3';
 import { learningProgress, nextExperimentAction, explainTarget, explainKeys, cardKeys, cardAnswered } from './journey.mjs?v=3';
 import { cardSpec, dataLines, conceptHint, ruledKey } from './cards.mjs?v=3';
-import { QuizView } from './quiz.mjs?v=1';
+import { QuizView, gameEntry } from './quiz.mjs?v=2';
 import { Microphone } from './microphone.mjs?v=1';
 import { renderStageReference, renderExamReference } from './teacher-guide.mjs?v=3';
-import { RewardChallenge } from './reward.mjs?v=1';
 import { mapBackground, mapPath, placeIcon, sprite, pickCharacter, xiaodiSvg, CHARACTERS } from './world.mjs?v=2';
 import { setFocus, place as placeCoach, spotlight } from './focus.mjs?v=2';
 import { sound } from './sfx.mjs?v=2';
@@ -23,7 +22,7 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ORDER = [...R.stageIds, 'quiz'];
 const STEPS = [['predict', '想一想'], ['experiment', '做实验'], ['explain', '说清楚']];
 let state = null, drafts = {}, stage = 'flow', learningStep = 'predict', experiment = null, screen = 'login';
-let opLevel = {}, revisit = {}, reviewed = {}, quiz = null, reward = null, live = null, liveAt = 0, liveTimer = null, mic = null, micLevel = null;
+let opLevel = {}, revisit = {}, reviewed = {}, quiz = null, live = null, liveAt = 0, liveTimer = null, mic = null, micLevel = null;
 let character = 'maleAdventurer', avatarAt = 'flow', walking = false, shownCard = null, sayText = '', sayTone = '', hintText = '', mapNote = '';
 let login = { classId: '', id: '', manual: false };
 
@@ -487,7 +486,7 @@ function refreshGuide() {
     const t = currentTarget();
     return setFocus($('place-' + t), t === 'quiz' ? '去完成20题考核' : '点这里出发');
   }
-  if (screen === 'end') return setFocus($('end-quiz'), '开始20题考核');
+  if (screen === 'end') return $('game-link') && mode !== 'test' ? setFocus($('game-link'), '进入奖励小游戏') : setFocus($('end-quiz'), '开始20题考核');
   if (screen === 'quiz') return quizGuide();
   if (screen !== 'level') return setFocus(null);
   const d = draft(), p = learningProgress(stage, d, R);
@@ -508,7 +507,7 @@ function refreshGuide() {
 }
 function quizGuide() {
   const c = $('quiz-page');
-  if (c.querySelector('#return-study')) return setFocus(c.querySelector('#return-study'), '回到地图');
+  if (c.querySelector('#return-study')) return c.querySelector('#game-link') && mode === 'student' ? setFocus(c.querySelector('#game-link'), '进入奖励小游戏') : setFocus(c.querySelector('#return-study'), '回到地图');
   const sets = [...c.querySelectorAll('fieldset.question')];
   const open = sets.find(f => !f.querySelector('input:checked'));
   if (open) return setFocus(open, '选一个答案');
@@ -539,6 +538,7 @@ function showEnd() {
   $('end-page').innerHTML = `<div class="result-card report"><img src="${sprite(character, left ? 'idle' : 'cheer0')}" alt="" width="72" height="96" class="report-actor"><p class="eyebrow">巡查报告站</p><h1>${left ? `还有 ${left} 站没完成` : '你用数据解释了监测系统'}</h1><p class="score">${state.points || 0}<small> 积分</small></p>
     <table class="end-table"><thead><tr><th>地点</th><th>证据星</th><th>第一次检验</th><th>新情境判断</th><th>想法提示</th></tr></thead><tbody>${rows}</tbody></table>
     <p>积分记录完成了哪些地点；证据星看第一次的独立表现（解释一致、新情境判断正确）。理解还要看20题考核。${quizzes.length ? `已考 ${quizzes.length} 次：首次 ${quizzes[0].score} 分，最近 ${quizzes.at(-1).score} 分。` : '还没有参加20题考核。'}</p>
+    ${gameEntry(mode, quizzes.length ? quizzes.at(-1).score : null, quizzes)}
     <div class="end-actions"><button type="button" id="end-quiz" class="go-btn">${quizzes.length ? '再考一次 · 新抽20题' : '开始20题考核'}</button><button type="button" id="end-back" class="ghost-btn">回到地图</button></div></div>`;
   $('end-quiz').onclick = showQuiz; $('end-back').onclick = () => showMap();
   refreshGuide();
@@ -556,7 +556,7 @@ function testTools() {
   };
   $('test-bank').onclick = async () => { const b = await teacherBank(); panel(renderExamReference(b.questions)); };
   $('test-quiz').onclick = () => { $('test-answer-panel').hidden = true; showQuiz(); };
-  $('test-reward').onclick = () => { $('test-answer-panel').hidden = true; show('end'); $('end-page').innerHTML = '<div class="result-card"><p class="eyebrow">教师隔离测试 · 考后挑战</p><h1>阈值调校挑战</h1><p>直接体验，不用先提交考核；不影响任何成绩。</p><button type="button" id="reward-back" class="ghost-btn">回到地图</button><section id="reward-stage"></section></div>'; reward?.destroy(); reward = new RewardChallenge($('reward-stage')); $('reward-back').onclick = () => showMap(); setFocus(null); };
+  $('test-reward').onclick = () => { location.href = '/game-test'; };
   $('test-reset').onclick = () => { if (!confirm('清空本页的测试状态？')) return; sessionStorage.clear(); location.reload(); };
 }
 
@@ -573,4 +573,4 @@ async function boot() {
 }
 addEventListener('pagehide', () => { mic?.stop(); });
 boot();
-export { RewardChallenge, explainKeys };
+export { explainKeys };

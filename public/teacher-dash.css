@@ -48,3 +48,15 @@
 @media (max-width:1500px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis{grid-template-columns:repeat(3,1fr)}#diagnosis .diag{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){.dash-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.dash-card{min-height:0}#diagnosis .diag{grid-template-columns:1fr}.quiz-split{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* 奖励小游戏面板 */
+#c-game{margin-top:14px}
+.g-wrap{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}
+.g-col h3{font-size:18px;margin:4px 0 6px;color:#0f2a3a}
+.g-bin{display:grid;grid-template-columns:96px 1fr 30px;align-items:center;gap:8px;font-size:15px;margin:4px 0}
+.g-bin i{display:block;height:20px;border-radius:5px;min-width:2px}
+.g-bin b{text-align:right}
+.g-board{list-style:none;margin:0;padding:0;font-size:17px}
+.g-board li{display:flex;gap:8px;padding:4px 0;border-bottom:1px solid #e3ebef}
+.g-board li span{margin-left:auto;color:#5d7682}
+.no-evidence.small{min-height:90px;font-size:20px}
+@media (max-width:1500px){.g-wrap{grid-template-columns:repeat(2,minmax(0,1fr))}}

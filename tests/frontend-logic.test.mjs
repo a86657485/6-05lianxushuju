@@ -164,3 +164,18 @@ test('沉浸版素材：全部本地、体积小，并在素材来源中登记',
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   assert.ok(!/https?:\/\//.test(html.replace(/<a [^>]*>/g, '')), '学生页不引用外网资源');
 });
+
+test('奖励小游戏入口与教师面板：79锁定显示最好成绩、80进入、测试模式不受限；大屏面板有空状态', async () => {
+  const { gameEntry } = await import('../public/quiz.mjs');
+  const locked = gameEntry('student', 79, [{ score: 85 }, { score: 79 }]);
+  assert.ok(locked.includes('考核80分以上解锁') && locked.includes('最好成绩 85 分') && !locked.includes('href="/game"'));
+  assert.ok(gameEntry('student', 80, [{ score: 80 }]).includes('href="/game"'));
+  assert.ok(gameEntry('test', 0).includes('href="/game-test"'));
+  assert.ok(gameEntry('student', null).includes('还没有参加20题考核'));
+  assert.equal(gameEntry('demo', 100), '');
+  const { gameChart } = await import('../public/teacher-charts.mjs');
+  assert.ok(gameChart([{ student: { name: '甲' }, gameGate: { unlocked: false } }]).includes('尚无学生解锁'));
+  const s = { student: { name: '乙' }, gameGate: { unlocked: true }, game: { plays: 2, total: 300, stars: 5, discoveries: { garden: { firstCorrect: true } }, runs: [{ level: 'garden', controls: { a: { last: 40 } } }, { level: 'sample', controls: { k: { last: 3 } } }] } };
+  const html = gameChart([s]);
+  assert.ok(html.includes('解锁 1/1') && html.includes('首选正确 1/1') && html.includes('乙'));
+});

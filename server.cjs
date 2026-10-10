@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const { DatabaseSync } = require('node:sqlite');
 const quiz = require('./quiz.cjs');
+const night = require('./public/game/night-core.js');
 const { isTeacherAddress, teacherOrigins, parseAllowList } = require('./teacher-access.cjs');
 
 const BASE = __dirname;
@@ -125,10 +126,53 @@ function createService(options = {}) {
         }
         current.stars = stages.reduce((n, k) => n + current.records[k].summary.stars, 0);
         if (!full) current.quizAttempts = (current.quizAttempts || []).map(q => ({ id: q.id, score: q.score, byGoal: q.byGoal, created: q.created }));
+        current.gameGate = gameGate(current);
+        if (!full && current.game) current.game = { ...current.game, runs: (current.game.runs || []).slice(-12) };
         current.roundHistory = db.prepare('SELECT round FROM states WHERE sid=? AND round<>?').all(s.id, current.round).map(r => r.round);
         return current;
       });
     return { classId, at: now(), round, students };
+  }
+
+  /* ---------- 奖励小游戏：最近一次20题考核 ≥80 分才解锁（服务端判定），成绩由服务端按操作记录重放得出 ---------- */
+  function gameGate(data) {
+    return night.gate((data.quizAttempts || []).map(q => q.score));
+  }
+  function leaderboard(classId) {
+    const round = roundOf(classId);
+    return db.prepare('SELECT s.id, s.name, st.json FROM students s JOIN states st ON st.sid=s.id AND st.round=? WHERE s.classId=?').all(round, classId)
+      .map(r => { const g = JSON.parse(r.json).game; return g && g.total > 0 ? { name: r.name, total: g.total, stars: g.stars } : null; })
+      .filter(Boolean).sort((a, b) => b.total - a.total || b.stars - a.stars).slice(0, 10);
+  }
+  function gameStatus(s, data = state(s)) { return { ...gameGate(data), game: data.game || null, leaderboard: leaderboard(s.classId) }; }
+  function gameResult(req, body) {
+    const s = matchIdentity(req, body), data = state(s), gate = gameGate(data);
+    if (!gate.unlocked) fail(403, '考核80分以上解锁', { gate });
+    if (!night.byId[body.level]) fail(400, '未知小游戏关卡');
+    if (typeof body.runId !== 'string' || !body.runId.trim() || body.runId.length > 80) fail(400, '缺少有效记录标识');
+    const seed = Number(body.seed); if (!Number.isInteger(seed) || seed < 1 || seed > 2147483647) fail(400, '数据编号不正确');
+    let r; try { r = night.replay(body.level, seed, body.log || []); } catch { fail(400, '操作记录格式不正确'); }
+    const g = data.game ||= { runs: [], best: {}, discoveries: {}, plays: 0, total: 0, stars: 0 };
+    if (g.runs.some(x => x.runId === body.runId)) return { result: g.runs.find(x => x.runId === body.runId), status: gameStatus(s, data) };
+    const run = { runId: body.runId, level: r.level, seed, score: r.score, stars: r.stars, stats: r.stats, controls: r.controls, claimed: Number(body.claimed) || null, created: now() };
+    g.runs.push(run); if (g.runs.length > 40) g.runs = g.runs.slice(-40);
+    g.plays++;
+    if (!g.best[r.level] || r.score > g.best[r.level].score) g.best[r.level] = { score: r.score, stars: r.stars, seed, controls: r.controls };
+    g.total = Math.round(Object.values(g.best).reduce((n, b) => n + Math.max(0, b.score), 0));
+    g.stars = Object.values(g.best).reduce((n, b) => n + b.stars, 0);
+    save(data);
+    return { result: run, status: gameStatus(s, data) };
+  }
+  function gameDiscover(req, body) {
+    const s = matchIdentity(req, body), data = state(s);
+    if (!gameGate(data).unlocked) fail(403, '考核80分以上解锁');
+    const L = night.byId[body.level]; if (!L) fail(400, '未知小游戏关卡');
+    if (!L.discover.options.some(o => o[0] === body.choice)) fail(400, '请选择一项发现');
+    const g = data.game ||= { runs: [], best: {}, discoveries: {}, plays: 0, total: 0, stars: 0 };
+    const prev = g.discoveries[body.level];
+    g.discoveries[body.level] = { first: prev?.first ?? body.choice, firstCorrect: prev ? prev.firstCorrect : body.choice === 'ok', latest: body.choice, correct: body.choice === 'ok', at: now() };
+    save(data);
+    return { discovery: g.discoveries[body.level], status: gameStatus(s, data) };
   }
 
   function handleEvent(req, body) {
@@ -228,6 +272,9 @@ function createService(options = {}) {
         catch (error) { db.exec('ROLLBACK'); throw error; }
         return json(res, 200, result);
       }
+      if (p === '/api/game/status' && req.method === 'GET') { const s = signedStudent(req); return json(res, 200, gameStatus(s)); }
+      if (p === '/api/game/result' && req.method === 'POST') return json(res, 200, gameResult(req, body));
+      if (p === '/api/game/discover' && req.method === 'POST') return json(res, 200, gameDiscover(req, body));
       if (p === '/api/live' && req.method === 'GET') return json(res, 200, { ...live, serverNow: Date.now() });
       if (p.startsWith('/api/teacher/')) {
         teacher(req);
@@ -248,8 +295,8 @@ function createService(options = {}) {
         }
       }
       if (p.startsWith('/api/')) fail(404, '接口不存在');
-      if (['/test', '/teacher', '/teacher-microphone'].includes(p)) teacher(req);
-      const aliases = { '/': 'index.html', '/teacher': 'teacher.html', '/teacher-microphone': 'teacher-microphone.html', '/test': 'index.html', '/demo': 'index.html' };
+      if (['/test', '/teacher', '/teacher-microphone', '/game-test'].includes(p)) teacher(req);
+      const aliases = { '/': 'index.html', '/teacher': 'teacher.html', '/teacher-microphone': 'teacher-microphone.html', '/test': 'index.html', '/demo': 'index.html', '/game': 'game/index.html', '/game-test': 'game/index.html' };
       let relative = aliases[p];
       if (!relative) {
         let decoded; try { decoded = decodeURIComponent(p); } catch { fail(400, '地址格式不正确'); }
@@ -267,7 +314,7 @@ function createService(options = {}) {
       fs.createReadStream(file).pipe(res);
     } catch (e) {
       if (res.headersSent) { res.destroy(); return; }
-      json(res, e.status || 500, { error: e.status ? e.message : '服务暂时无法保存，请稍后重试', ...(e.choices ? { choices: e.choices } : {}), ...(e.round ? { round: e.round } : {}) });
+      json(res, e.status || 500, { error: e.status ? e.message : '服务暂时无法保存，请稍后重试', ...(e.choices ? { choices: e.choices } : {}), ...(e.round ? { round: e.round } : {}), ...(e.gate ? { gate: e.gate } : {}) });
       if (!e.status) console.error('课堂服务错误:', e.message);
     }
   });
