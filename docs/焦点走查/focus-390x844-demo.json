@@ -1,0 +1,1407 @@
+{
+ "tag": "390x844-demo",
+ "viewport": [
+  390,
+  844
+ ],
+ "mode": "demo",
+ "steps": [
+  {
+   "step": "地图：第1站",
+   "count": 1,
+   "id": "place-flow",
+   "tag": "button",
+   "text": "62dB1广场监测器",
+   "tip": "点这里出发",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    112,
+    96,
+    96
+   ],
+   "ok": true
+  },
+  {
+   "step": "地图：前往第1站",
+   "count": 1,
+   "id": "place-flow",
+   "tag": "button",
+   "text": "62dB1广场监测器",
+   "tip": "点这里出发",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    112,
+    96,
+    96
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 想一想",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "只有采集声音时有数据输入、计算、输出都有数据只有",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    385,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 预测",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "只有采集声音时有数据输入、计算、输出都有数据只有",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    385,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 实验1",
+   "count": 1,
+   "id": "src-quiet",
+   "tag": "button",
+   "text": "🌙夜深人静",
+   "tip": "先点“夜深人静”",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    576,
+    362,
+    61
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 实验2",
+   "count": 1,
+   "id": "src-dance",
+   "tag": "button",
+   "text": "🎵广场舞音乐",
+   "tip": "再点“广场舞音乐”",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    582,
+    362,
+    61
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 实验完成",
+   "count": 1,
+   "id": "go-explain",
+   "tag": "button",
+   "text": "说清楚 →",
+   "tip": "实验记好了，去说清楚",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    258,
+    698,
+    118,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 说清楚：卡片 input",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "采集到的声音数据（如62.4 dB）声音采集装置",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    300,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 说清楚：卡片 compute",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "与55 dB比较后得出的结果：超标或未超标数据处",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    300,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 说清楚：卡片 output",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "显示的噪声数值，以及超标时发出的提示显示屏这个设",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    300,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 说清楚：卡片 transfer",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "水壶外壳 → 加热盘 → 插头测到的水温数据 →",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    262,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    237,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 标红后修订",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "采集到的声音数据（如62.4 dB）声音采集装置",
+   "tip": "再想想，改一改",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    300,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 说清楚：卡片 input",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "采集到的声音数据（如62.4 dB）声音采集装置",
+   "tip": "再想想，改一改",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    300,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 再次检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    237,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 通关庆祝",
+   "count": 1,
+   "id": "celebrate-next",
+   "tag": "button",
+   "text": "回到地图，去下一站 →",
+   "tip": "点这里继续",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    85,
+    541,
+    220,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "地图：前往第2站",
+   "count": 1,
+   "id": "place-wave",
+   "tag": "button",
+   "text": "2声音记录亭",
+   "tip": "点这里出发",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    254,
+    96,
+    96
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 想一想",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "连续起伏的波形 / 曲线一个个分开的散点",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    362,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 预测",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "连续起伏的波形 / 曲线一个个分开的散点",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    362,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 开始录音",
+   "count": 1,
+   "id": "record",
+   "tag": "button",
+   "text": "录10秒",
+   "tip": "点这里开始录10秒",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    495,
+    362,
+    58
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 录音中：拖推杆",
+   "count": 1,
+   "id": "knob-row",
+   "tag": "label",
+   "text": "🔈🔊45 dB",
+   "tip": "左右拖动，让声音忽大忽小",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    569,
+    362,
+    54
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 在两个圆点之间点",
+   "count": 1,
+   "id": "wave-chart",
+   "tag": "div",
+   "text": "30456075900秒2秒4秒6秒8秒10秒声",
+   "tip": "在两个圆点之间点一下",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    29,
+    228,
+    332,
+    187
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 实验完成",
+   "count": 1,
+   "id": "go-explain",
+   "tag": "button",
+   "text": "说清楚 →",
+   "tip": "实验记好了，去说清楚",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    258,
+    730,
+    118,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 说清楚：卡片 reason",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "曲线比点好看声音在一定范围内连续变化，任意两个时",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    262,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 说清楚：卡片 points",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "声音只有这几个数值测错的数据在某些时刻记下的读数",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    230,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 说清楚：卡片 transfer",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "没有气温，因为那时没测在20 ℃到24 ℃之间，",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    294,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    237,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 通关庆祝",
+   "count": 1,
+   "id": "celebrate-next",
+   "tag": "button",
+   "text": "回到地图，去下一站 →",
+   "tip": "点这里继续",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    85,
+    541,
+    220,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "地图：前往第3站",
+   "count": 1,
+   "id": "place-life",
+   "tag": "button",
+   "text": "33号楼小明家",
+   "tip": "点这里出发",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    396,
+    96,
+    96
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 想一想",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "逐渐变弱，中间经过许多数值一下子从亮变暗，只有两",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    362,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 预测",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "逐渐变弱，中间经过许多数值一下子从亮变暗，只有两",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    362,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 拉窗帘",
+   "count": 1,
+   "id": "fader.ctl.curtain-ctl",
+   "tag": "label",
+   "text": "窗帘0%",
+   "tip": "慢慢拖动，拉上窗帘",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    439,
+    362,
+    64
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 开始烧水",
+   "count": 1,
+   "id": "kettle-start",
+   "tag": "button",
+   "text": "🔥 开始烧水",
+   "tip": "点“开始烧水”",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    519,
+    362,
+    54
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 读水温",
+   "count": 1,
+   "id": "kettle-read",
+   "tag": "button",
+   "text": "🌡 读水温",
+   "tip": "趁没烧开，读一次水温",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    583,
+    362,
+    54
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 实验完成",
+   "count": 1,
+   "id": "go-explain",
+   "tag": "button",
+   "text": "说清楚 →",
+   "tip": "实验记好了，去说清楚",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    258,
+    772,
+    118,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 light",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    338,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 water",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 cup",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 seedling",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 people",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 lamp",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 rope",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 transfer",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "不会，指针直接跳过去会，车速连续变化，会经过中间",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    294,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    237,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 标红后修订",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "再想想，改一改",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 lamp",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "是连续量不是连续量",
+   "tip": "再想想，改一改",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    302,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 再次检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    237,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 通关庆祝",
+   "count": 1,
+   "id": "celebrate-next",
+   "tag": "button",
+   "text": "回到地图，去下一站 →",
+   "tip": "点这里继续",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    85,
+    541,
+    220,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "地图：前往第4站",
+   "count": 1,
+   "id": "place-threshold",
+   "tag": "button",
+   "text": "4物业控制室",
+   "tip": "点这里出发",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    538,
+    96,
+    96
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 想一想",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "变多变少不变",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    417,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 预测",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "变多变少不变",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    417,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 55运行",
+   "count": 1,
+   "id": "run-monitor",
+   "tag": "button",
+   "text": "▶ 运行监测",
+   "tip": "阈值是55，点“运行监测”",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    575,
+    362,
+    54
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 换阈值",
+   "count": 1,
+   "id": "fader.ctl.th-ctl",
+   "tag": "label",
+   "text": "阈值55 dB",
+   "tip": "换一个阈值（如45或65）",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    495,
+    362,
+    64
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 45运行",
+   "count": 1,
+   "id": "run-monitor",
+   "tag": "button",
+   "text": "▶ 运行监测",
+   "tip": "用新阈值再运行一次",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    575,
+    362,
+    54
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 实验完成",
+   "count": 1,
+   "id": "go-explain",
+   "tag": "button",
+   "text": "说清楚 →",
+   "tip": "实验记好了，去说清楚",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    258,
+    684,
+    118,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 where",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "输入环节：阈值就是采集到的声音计算环节：把采集的",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    262,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 why",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "那晚的声音变大了监测器坏了比较用的参考值变了，超",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    262,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 case:kettle",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "烧水时100℃自动断电",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    340,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 case:fridge",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "冰箱冷藏区4℃",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    340,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 case:heart",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "智能手环100次/min发出警报",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    367,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 case:highway",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "高速公路100～120 km/h开车",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    340,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    237,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 标红后修订",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "冰箱冷藏区4℃",
+   "tip": "再想想，改一改",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    340,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 case:fridge",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "冰箱冷藏区4℃",
+   "tip": "再想想，改一改",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    340,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 再次检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    237,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 通关庆祝",
+   "count": 1,
+   "id": "celebrate-next",
+   "tag": "button",
+   "text": "回到地图，去下一站 →",
+   "tip": "点这里继续",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    85,
+    541,
+    220,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "地图：前往第5站",
+   "count": 1,
+   "id": "place-design",
+   "tag": "button",
+   "text": "5屋顶种植园",
+   "tip": "点这里出发",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    680,
+    96,
+    96
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 想一想",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "打开，开始浇水保持关闭",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    385,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 预测",
+   "count": 1,
+   "id": "card-options.think-options",
+   "tag": "div",
+   "text": "打开，开始浇水保持关闭",
+   "tip": "选一个你的想法",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    385,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "design ①选数据",
+   "count": 1,
+   "id": "g-data",
+   "tag": "div",
+   "text": "① 传感器测💧 土壤湿度☀️ 光照强度🌡 空",
+   "tip": "①选：系统采集什么数据",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    667,
+    362,
+    69
+   ],
+   "ok": true
+  },
+  {
+   "step": "design ②选方向",
+   "count": 1,
+   "id": "g-dir",
+   "tag": "div",
+   "text": "② 开水泵⬇ 降到阈值时⬆ 升到阈值时",
+   "tip": "②选：什么时候开水泵",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    625,
+    362,
+    56
+   ],
+   "ok": true
+  },
+  {
+   "step": "design ③设阈值",
+   "count": 1,
+   "id": "g-th-row",
+   "tag": "label",
+   "text": "③ 阈值50 %",
+   "tip": "③拖动设定阈值",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    530,
+    362,
+    88
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 运行60%",
+   "count": 1,
+   "id": "run-garden",
+   "tag": "button",
+   "text": "▶ 运行4天",
+   "tip": "点“运行4天”检验方案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    628,
+    362,
+    54
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 调整阈值",
+   "count": 1,
+   "id": "g-th-row",
+   "tag": "label",
+   "text": "③ 阈值60 %",
+   "tip": "调整阈值（或数据）再试",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    530,
+    362,
+    88
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 运行35%",
+   "count": 1,
+   "id": "run-garden",
+   "tag": "button",
+   "text": "▶ 运行4天",
+   "tip": "点“运行4天”检验方案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    14,
+    628,
+    362,
+    54
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 实验完成",
+   "count": 1,
+   "id": "go-explain",
+   "tag": "button",
+   "text": "说清楚 →",
+   "tip": "实验记好了，去说清楚",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    258,
+    775,
+    118,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 说清楚：卡片 role",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "测量土壤里有多少水让系统把湿度数据与它比较，决定",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    301,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 说清楚：卡片 raise",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "永远不会浇水没有任何变化更早、更频繁地浇水，土壤",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    301,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 说清楚：卡片 transfer",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "加热棒、水温、24 ℃水温数据、24 ℃、加热开",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    333,
+    318,
+    181
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 检验",
+   "count": 1,
+   "id": "check",
+   "tag": "button",
+   "text": "检验我的解释",
+   "tip": "检验我的解释",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    276,
+    148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 通关庆祝",
+   "count": 1,
+   "id": "celebrate-next",
+   "tag": "button",
+   "text": "去巡查报告站 →",
+   "tip": "点这里继续",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    111,
+    541,
+    169,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "地图：巡查报告站",
+   "count": 1,
+   "id": "place-quiz",
+   "tag": "button",
+   "text": "📋巡查报告站",
+   "tip": "去完成20题考核",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    598,
+    96,
+    96
+   ],
+   "ok": true
+  }
+ ],
+ "failures": [],
+ "consoleErrors": [],
+ "points": "★ 50"
+}

@@ -1,4 +1,4 @@
-/* 学习三步的进度、下一步操作指引与提示定位（纯函数，便于测试）。 */
+/* 学习三步的进度、“当前唯一主要操作”与解释卡片顺序（纯函数，便于测试）。 */
 import { activities } from './activities.mjs';
 
 export function explainKeys(stage, rules) {
@@ -30,58 +30,93 @@ export function learningProgress(stage, record, rules) {
   };
 }
 
-/** 实验步骤中“下一步点哪里”：操作指引可以直接告诉学生。 */
+/**
+ * 实验步骤中“下一步点哪里”。操作方法可以直接告诉学生：
+ * selector 是此刻唯一要突出的控件；tip 是贴在控件旁的一句话；instruction 是小递气泡里的完整说明。
+ * selector 为 null 表示正在运行动画，只需观察。
+ */
 export function nextExperimentAction(stage, checks, o = {}) {
   const missing = checks.find(c => !c.complete);
-  if (!missing) return { selector: '#step-next', instruction: '实验结果已自动保存。点击右侧“实验已记好，说清楚 →”。' };
+  const act = (selector, tip, instruction) => ({ selector, tip, instruction: instruction || tip });
+  if (!missing) return act('#go-explain', '实验记好了，去说清楚', '两项实验证据都已自动保存。点亮着的“说清楚”按钮。');
   if (stage === 'flow') {
-    if (o.busy) return { selector: null, instruction: '监测器正在采集声音，稍等片刻看三格过程图。' };
+    if (o.busy) return act(null, '', '监测器正在工作：看声音数据怎样从输入流到输出。');
     return missing.id === 'under'
-      ? { selector: '#src-quiet', instruction: '点击“夜深人静”或“几个人小声聊天”，让监测器测一次，看三个环节出现了什么。' }
-      : { selector: '#src-dance', instruction: '点击“广场舞音乐”，再测一次，比较这次三个环节有什么不同。' };
+      ? act('#src-quiet', '先点“夜深人静”', '让广场安静下来，看监测器的三个环节里出现了什么。')
+      : act('#src-dance', '再点“广场舞音乐”', '换成广场舞音乐再测一次，比较三个环节有什么不同。');
   }
   if (stage === 'wave') {
     if (missing.id === 'trace') {
-      if (o.source === 'teacher' && !o.liveFresh) return { selector: '#source-sim', instruction: '老师还没开启现场监测。可以等一等，或改选“模拟旋钮”。' };
-      if (o.recording) return { selector: o.source === 'simulation' ? '#knob' : null, instruction: o.source === 'simulation' ? '正在记录：慢慢左右拖动旋钮，让声音时大时小。' : '正在记录：请附近同学正常说话或轻拍手，让声音有大有小。' };
-      if (o.lastSpanSmall) return { selector: '#record', instruction: '刚才的声音几乎没有变化。再点“开始记录”，这次让声音时大时小。' };
-      return { selector: '#record', instruction: '点击“开始记录”，在10秒内让声音时大时小（拖动旋钮），曲线会自动画出来。' };
+      if (o.source === 'teacher' && !o.liveFresh) return act('#source-sim', '改用“模拟推杆”', '老师还没开启现场监测。可以等一等，或改用模拟推杆。');
+      if (o.recording) return o.source === 'simulation'
+        ? act('#knob', '左右拖动，让声音忽大忽小', '正在记录：慢慢左右拖动推杆，曲线会跟着起伏。')
+        : act(null, '', '正在记录：请附近同学说话或轻拍手，让声音有大有小。');
+      if (o.lastSpanSmall) return act('#record', '再录一次，这次让声音大起大落', '刚才声音几乎没有变化（起伏不足15）。再录一次。');
+      return act('#record', '点这里开始录10秒', '点红色录音键，然后在10秒里拖动推杆，让声音时大时小。');
     }
-    return { selector: '#wave-chart', instruction: '曲线上的圆点是每隔2秒记下的读数。在两个圆点之间的曲线上点一下，读出那一刻的声音。' };
+    return act('#wave-chart', '在两个圆点之间点一下', '圆点是每2秒记下的读数。在两个圆点中间的曲线上点一下，看那一刻有没有数值。');
   }
   if (stage === 'life') {
-    if (missing.id === 'curtain') return { selector: '#curtain', instruction: '慢慢拖动“窗帘拉上多少”滑块，看光照表和曲线怎样变化（至少经过8个不同读数）。' };
-    if (o.kettleRunning) return { selector: '#kettle-read', instruction: '水温正在上升。趁它还没到100 ℃，点“读出此刻水温”。' };
-    return { selector: '#kettle-start', instruction: '点击“开始加热”，观察温度计和曲线，在途中读出一个水温。' };
+    if (missing.id === 'curtain') return act('#curtain', '慢慢拖动，拉上窗帘', '慢慢拖动窗帘把手，看光照表和曲线怎样变化（至少经过8个不同读数）。');
+    if (o.kettleRunning) return act('#kettle-read', '趁没烧开，读一次水温', '水温正在上升。趁它还没到100 ℃，读出此刻的水温。');
+    return act('#kettle-start', '点“开始烧水”', '打开电热水壶，看温度计和曲线怎样变化。');
   }
   if (stage === 'threshold') {
-    if (o.running) return { selector: null, instruction: '监测正在回放这一晚的数据，注意报警灯和提示记录。' };
-    return missing.id === 'standard'
-      ? { selector: '#th-slider', instruction: '把阈值滑块调到55 dB（小区夜间标准），再点“运行监测”。' }
-      : { selector: '#th-slider', instruction: '把阈值换成一个明显不同的数（如45或65 dB），再点“运行监测”，比较提示次数。' };
+    if (o.running) return act(null, '', '正在回放这一晚：注意报警灯什么时候亮。');
+    if (missing.id === 'standard') return o.threshold === 55
+      ? act('#run-monitor', '阈值是55，点“运行监测”', '红线就是阈值。小区夜间标准是55 dB，先用它回放这一晚。')
+      : act('#th-slider', '把红线调到 55', '拖动阈值滑块，把红线调到小区夜间标准 55 dB。');
+    return Number.isInteger(o.threshold) && Math.abs(o.threshold - 55) >= 5
+      ? act('#run-monitor', '用新阈值再运行一次', '数据还是同一晚，只换了阈值。再运行一次，比较提示次数。')
+      : act('#th-slider', '换一个阈值（如45或65）', '把红线拖到一个明显不同的位置（比55低或高至少5），再运行比较。');
   }
   if (stage === 'design') {
-    if (o.running) return { selector: null, instruction: '正在运行4天的仿真，观察湿度曲线和水泵。' };
-    return missing.id === 'fit'
-      ? { selector: '#run-garden', instruction: '选好数据、比较方式和阈值，点“运行4天”，让湿度曲线留在绿色带（30%—70%）里。' }
-      : { selector: '#g-threshold', instruction: '再换一种设置（例如换一个阈值）运行一次，比较两次结果。' };
+    if (o.running) return act(null, '', '正在运行4天：看湿度曲线有没有跑出绿色带。');
+    if (!o.data) return act('#g-data', '①选：系统采集什么数据', '先决定传感器测什么。三种数据都可以试，结果会告诉你哪种合适。');
+    if (!o.direction) return act('#g-dir', '②选：什么时候开水泵', '数据“降到”阈值时浇水，还是“升到”阈值时浇水？');
+    if (!o.thresholdSet) return act('#g-threshold', '③拖动设定阈值', '拖动滑块，设定开水泵的阈值。');
+    if (o.alreadyRun) return missing.id === 'fit'
+      ? act('#g-threshold', '调整阈值（或数据）再试', '这个方案已经运行过。看看曲线哪里跑出了绿色带，改一改再运行。')
+      : act('#g-threshold', '换一种设置，再比较一次', '已经找到合适的方案。再换一种设置运行，比较两次结果。');
+    return act('#run-garden', '点“运行4天”检验方案', '方案设好了，运行4天的仿真看看湿度能不能保持在30%—70%。');
   }
-  return { selector: null, instruction: '' };
+  return act(null, '', '');
 }
 
-/** 解释步骤中，提交后的错误定位到需要修订的位置。 */
-export function explainTarget(stage, record, errors, rules) {
-  const a = activities[stage];
-  const m = rules.messages[stage];
-  if (stage === 'design' && errors.includes(m.design)) return { selector: '#back-to-experiment', label: '返回实验，调整浇水方案后再运行' };
+/** 解释卡片的顺序：每个解释项一张卡，迁移题一张（阈值关为4张案例卡）。 */
+export function cardKeys(stage, rules) {
+  const keys = explainKeys(stage, rules);
+  if (activities[stage].transfer.type === 'cases') return [...keys, ...Object.keys(rules.thresholdCases).map(k => 'case:' + k)];
+  return [...keys, 'transfer'];
+}
+export function cardAnswered(stage, record, key) {
+  if (key === 'transfer') return typeof record.transfer === 'string' && !!record.transfer;
+  if (key.startsWith('case:')) return !!(record.transfer && typeof record.transfer === 'object' && record.transfer[key.slice(5)]);
+  return !!record.explain?.[key];
+}
+/** 提交后哪些卡片需要修订（与 rules.assess 的错误信息对应）。 */
+export function wrongCards(stage, record, errors, rules) {
+  const m = rules.messages[stage], out = [];
   for (const k of explainKeys(stage, rules)) {
-    if (!record.explain?.[k]) return { selector: `[data-explain="${k}"]`, label: '完成这一项' };
+    if (stage === 'life' ? errors.includes(m.sort) && record.explain?.[k] !== rules.lifeCards[k].kind : errors.includes(m[k])) out.push(k);
   }
-  if (stage === 'life' && errors.includes(m.sort)) {
-    const wrong = Object.entries(rules.lifeCards).find(([k, v]) => record.explain?.[k] !== v.kind);
-    if (wrong) return { selector: `[data-explain="${wrong[0]}"]`, label: '再想想这张卡片' };
+  if (errors.includes(m.transfer)) {
+    if (activities[stage].transfer.type === 'cases') { for (const [k, c] of Object.entries(rules.thresholdCases)) if (record.transfer?.[k] !== c.answer) out.push('case:' + k); }
+    else out.push('transfer');
   }
-  if (a.explain.type !== 'sort') for (const k of explainKeys(stage, rules)) if (errors.includes(m[k])) return { selector: `[data-explain="${k}"]`, label: '修订这一项' };
-  if (!transferDone(stage, record, rules) || errors.includes(m.transfer)) return { selector: '#transfer', label: '完成新情境判断' };
-  return { selector: '#submit', label: '检验我的解释' };
+  return out;
+}
+/**
+ * 解释步骤的下一张卡与唯一主要操作：未答的卡 → 需要修订且还没改的卡 → 检验按钮。
+ * revisit：上次检验标出、学生尚未改动的卡片。
+ */
+export function explainTarget(stage, record, errors, rules, revisit = []) {
+  const m = rules.messages[stage];
+  if (stage === 'design' && errors.includes(m.design)) return { card: 'summary', selector: '#back-to-experiment', label: '回去调整浇水方案' };
+  const keys = cardKeys(stage, rules);
+  const open = keys.find(k => !cardAnswered(stage, record, k));
+  if (open) return { card: open, selector: `[data-card="${open}"] .card-options`, label: '选一个答案' };
+  const fix = keys.find(k => revisit.includes(k));
+  if (fix) return { card: fix, selector: `[data-card="${fix}"] .card-options`, label: '再想想，改一改' };
+  return { card: 'summary', selector: '#check', label: '检验我的解释' };
 }

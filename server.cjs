@@ -242,7 +242,7 @@ function createService(options = {}) {
       if (!file.startsWith(publicRoot + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) fail(404, '文件不存在');
       if (!fs.realpathSync(file).startsWith(fs.realpathSync(publicRoot) + path.sep)) fail(404, '文件不存在');
       if (['teacher.html', 'teacher-microphone.html', 'teacher.mjs', 'teacher-microphone.mjs'].includes(path.basename(file))) teacher(req);
-      const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
+      const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ogg': 'audio/ogg', '.webp': 'image/webp' };
       const ext = path.extname(file);
       res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream', 'Cache-Control': ['.html', '.js', '.mjs', '.css'].includes(ext) ? 'no-cache' : 'public, max-age=3600' });
       if (req.method === 'HEAD') return res.end();
