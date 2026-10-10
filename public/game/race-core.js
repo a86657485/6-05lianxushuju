@@ -15,6 +15,50 @@
 
   const FPS = 20; // 服务端重放固定 20 帧/秒
   const MAX_LOG = 500;
+  const READ_MS = 3000; // 知识点至少阅读 3 秒
+  const COOLDOWN_TICKS = 60; // 约 3 秒内不重复弹窗
+  const GOALS = [
+    { id: 'data', name: '控制系统工作时产生的数据' },
+    { id: 'continuous', name: '连续量的表现形式及应用' },
+    { id: 'threshold', name: '阈值在控制系统中的作用' }
+  ];
+  /* 超速弹窗：知识点卡片（按三目标） */
+  const KNOWLEDGE = {
+    data: [
+      '控制系统工作时，输入、计算、输出各环节都在产生或传递数据。车速表读数是输入数据，和限速比较后得到判断，刹车指令是输出数据。',
+      '装置（车速传感器、刹车）不是数据；“63 km/h”“超速了”“刹车”这些才是流动着的数据。'
+    ],
+    continuous: [
+      '车速是连续量：在一定范围内连续变化，加速时会经过中间的许多数值，不是只有“快/慢”两档。',
+      '车速表指针（或数字）连续变化，用曲线能看出任意时刻的速度；两次读数之间车速仍可能在变。'
+    ],
+    threshold: [
+      '阈值是用来和数据比较、得出判断的参考值。限速线就是阈值：系统拿车速和它比较，再决定是否警告或刹车。',
+      '同样的车速数据，换一个阈值，系统输出就可能不同——阈值太低会频繁干预，太高则疏于提醒。'
+    ]
+  };
+  /* 快问：每目标若干题，误解干扰项 */
+  const QUIZ = {
+    data: [
+      { id: 'd1', q: '刚才超速时，一直在系统里流动、被拿来比较的是什么？', options: ['方向盘和轮胎', '车速数据（读数）', '限速牌的铁皮', '小递的衣服'], a: 1, tip: '输入的是车速数据，不是装置本身。' },
+      { id: 'd2', q: '“超过限速→系统判断超速→输出刹车”里，哪一步产生了新的判断数据？', options: ['只有踩油门时', '计算：把车速和阈值比较', '路边的树', '显示屏外壳'], a: 1, tip: '计算环节比较后产生判断结果数据。' },
+      { id: 'd3', q: '下面哪一项是数据，而不是装置？', options: ['刹车片', '车速传感器', '此刻车速 63 km/h', '方向盘'], a: 2, tip: '63 km/h 是采集到的数据。' },
+      { id: 'd4', q: '自动驾驶时“读数→比较→刹车指令”，这三个分别主要属于？', options: ['装饰、装饰、装饰', '输入数据、计算、输出数据', '只有输出才是数据', '都不是数据'], a: 1, tip: '数据贯穿输入、计算、输出。' }
+    ],
+    continuous: [
+      { id: 'c1', q: '车速从 30 加到 60，中间会经过 45 吗？', options: ['会，车速是连续变化的', '不会，指针直接跳过去', '只会经过整十', '只有刹车才经过'], a: 0, tip: '连续量在范围内会经过中间值。' },
+      { id: 'c2', q: '车速表上的数字一直在变，说明车速属于？', options: ['只有开/关两种状态', '连续量', '人数统计', '不是数据'], a: 1, tip: '车速在范围内连续变化。' },
+      { id: 'c3', q: '用曲线表示一段时间内的车速，比每隔很久记一个点更好，是因为？', options: ['曲线好看', '连续变化看得更清楚，短促超速不易漏', '点越多越费电所以别画', '两者完全一样'], a: 1, tip: '连续量用曲线（或更密采样）更合适。' },
+      { id: 'c4', q: '“连续量一定越来越大”对吗？', options: ['对', '不对，可以增大、减小或起伏', '对，只有变大才叫连续', '连续量不会变'], a: 1, tip: '连续指中间无跳跃，不是只增不减。' }
+    ],
+    threshold: [
+      { id: 't1', q: '校区“限速 40 km/h”在控制系统里扮演什么角色？', options: ['输入的车速数据本身', '阈值：用来比较并决定是否干预', '输出装置', '装饰用的牌子'], a: 1, tip: '限速是阈值（参考值）。' },
+      { id: 't2', q: '你刚才 63 km/h、阈值 40，系统为什么刹车？', options: ['随机刹车', '把连续车速和阈值比较后，判断超速并输出刹车', '因为车是红色的', '因为没有限速牌'], a: 1, tip: '阈值比较后决定输出。' },
+      { id: 't3', q: '同一段车速，把阈值从 40 调到 80，最可能？', options: ['更早、更频繁被刹', '更不容易触发警告/刹车', '车速数据本身变了', '连续量消失'], a: 1, tip: '阈值变了，判断结果就变。' },
+      { id: 't4', q: '阈值设得太低，可能带来什么问题？', options: ['很少干预', '正常车速也频繁警告/刹车', '采集不到车速', '数据不再连续'], a: 1, tip: '阈值过低会导致频繁干预。' }
+    ]
+  };
+
 
   const LEVELS = [
     {
@@ -167,10 +211,15 @@
       battery: L.battery || null,
       switches: 0, // brake on/off edges
       braking: false, warn: false,
-      stats: { tickets: 0, overTicks: 0, warnTicks: 0, brakeTicks: 0, distance: 0, falseAlarm: 0, missed: 0, dry: 0, flood: 0, water: 0, battery: L.battery || 0 },
+      stats: { tickets: 0, overTicks: 0, warnTicks: 0, brakeTicks: 0, distance: 0, falseAlarm: 0, missed: 0, dry: 0, flood: 0, water: 0, battery: L.battery || 0, violations: 0, quizAsked: 0, quizFirstOk: 0, quizByGoal: {} },
       history: [],
       lastSample: -999,
-      broken: false
+      broken: false,
+      overLimit: false,
+      violCooldownUntil: 0,
+      zoneViolated: {}, // zoneId -> true after first quiz
+      paused: false,
+      pendingViol: null
     };
   }
 
@@ -187,7 +236,113 @@
         if (x.options.some(o => o[0] === e[x.key])) sim.ctrl[x.key] = e[x.key];
       } else sim.ctrl[x.key] = clamp(Number(e[x.key]), x.min, x.max);
     }
+    if (e.viol) applyViolation(sim, e.viol);
   }
+
+  function validateViolation(v) {
+    if (!v || typeof v !== 'object') throw new Error('缺少超速答题记录');
+    const reads = Array.isArray(v.reads) ? v.reads : [];
+    if (!reads.length) throw new Error('知识点阅读时间不足');
+    for (const r of reads) {
+      const ms = Number(r && r.ms);
+      if (!Number.isFinite(ms) || ms < READ_MS) throw new Error('知识点须阅读满3秒');
+    }
+    const answers = Array.isArray(v.answers) ? v.answers : [];
+    if (!answers.length) throw new Error('请完成超速问答题');
+    // 每答错一次，后面必须多一段 ≥3s 阅读
+    let wrong = 0;
+    for (let i = 0; i < answers.length; i++) {
+      const ans = answers[i];
+      const pool = Object.values(QUIZ).flat();
+      const item = pool.find(q => q.id === ans.qid);
+      if (!item) throw new Error('未知题目');
+      const ok = Number(ans.choice) === item.a;
+      if (ok !== !!ans.correct) throw new Error('答题记录不一致');
+      if (!ok) wrong++;
+      else {
+        // 答对时：reads 数量应 >= wrong+1
+        if (reads.length < wrong + 1) throw new Error('答错后须重新阅读满3秒');
+        return { goal: v.goal, firstOk: answers[0] && !!answers[0].correct, qid: ans.qid };
+      }
+    }
+    throw new Error('超速问答题未答对');
+  }
+
+  function applyViolation(sim, v) {
+    const info = validateViolation(v);
+    const limit = Number(v.limit);
+    if (Number.isFinite(limit)) sim.speed = Math.min(sim.speed, Math.max(0, limit));
+    sim.keys.u = 0;
+    sim.overLimit = false;
+    sim.violCooldownUntil = sim.t + COOLDOWN_TICKS;
+    if (v.zone) sim.zoneViolated[v.zone] = true;
+    sim.stats.violations = (sim.stats.violations || 0) + 1;
+    sim.stats.quizAsked = (sim.stats.quizAsked || 0) + 1;
+    if (info.firstOk) sim.stats.quizFirstOk = (sim.stats.quizFirstOk || 0) + 1;
+    const g = info.goal || 'threshold';
+    const bag = sim.stats.quizByGoal[g] || { asked: 0, firstOk: 0 };
+    bag.asked++; if (info.firstOk) bag.firstOk++;
+    sim.stats.quizByGoal[g] = bag;
+    sim.paused = false;
+    sim.pendingViol = null;
+  }
+
+  function currentLimit(sim, z) {
+    if (!z) z = zoneAt(sim.L, (sim.pos / sim.L.trackLen) % 1);
+    if (z.warnKey) return Math.max(sim.ctrl[z.warnKey], sim.ctrl[z.brakeKey]);
+    return limitOf(z, sim.ctrl);
+  }
+
+  function pickGoal(sim) {
+    // 轮转三目标
+    const i = (sim.stats.violations || 0) % GOALS.length;
+    return GOALS[i];
+  }
+
+  function knowledgeFor(goalId, ctx) {
+    const lines = KNOWLEDGE[goalId] || KNOWLEDGE.threshold;
+    const base = lines[(ctx.n || 0) % lines.length];
+    const speed = Math.round(ctx.speed || 0), limit = Math.round(ctx.limit || 0), zone = ctx.zoneLabel || '本路段';
+    return {
+      goalId,
+      goalName: (GOALS.find(g => g.id === goalId) || GOALS[2]).name,
+      title: '超速了！先看清本节课知识点',
+      body: `${base} 你刚才 ${speed} km/h，超过了${zone}阈值 ${limit} km/h——系统拿连续车速和阈值比较后，输出了警告/刹车。`,
+      readMs: READ_MS
+    };
+  }
+
+  function pickQuestion(goalId, avoidIds = []) {
+    const pool = (QUIZ[goalId] || QUIZ.threshold).filter(q => !avoidIds.includes(q.id));
+    const list = pool.length ? pool : (QUIZ[goalId] || QUIZ.threshold);
+    const q = list[Math.floor(Math.random() * list.length)];
+    return { id: q.id, goalId, q: q.q, options: q.options.slice(), tip: q.tip, answer: q.a };
+  }
+
+  /** 客户端：本帧是否应暂停并弹窗（越阈/强行超速边沿 + 冷却） */
+  function shouldQuiz(sim) {
+    if (sim.done || sim.paused) return null;
+    if (sim.t < sim.violCooldownUntil) return null;
+    const z = zoneAt(sim.L, (sim.pos / sim.L.trackLen) % 1);
+    const limit = currentLimit(sim, z);
+    if (limit == null || !Number.isFinite(limit)) return null;
+    const over = sim.speed > limit;
+    const edge = over && !sim.overLimit;
+    sim.overLimit = over;
+    if (!edge) return null;
+    const goal = pickGoal(sim);
+    const ctx = { speed: sim.speed, limit, zoneLabel: z.label, zone: z.id, n: sim.stats.violations || 0 };
+    return {
+      t: sim.t,
+      zone: z.id,
+      zoneLabel: z.label,
+      speed: r1(sim.speed),
+      limit: r1(limit),
+      goal: goal.id,
+      knowledge: knowledgeFor(goal.id, ctx)
+    };
+  }
+
 
   function tick(sim) {
     if (sim.done) return snapshot(sim);
@@ -272,13 +427,20 @@
     }
 
     if (wantBrake) {
-      // 阈值输出：手动时强力干预；自动驾驶时系统本就按阈值巡航，只做轻点刹+记分
+      // 阈值输出：手动仍可短时冲过阈值（才能触发「超速弹窗」），但持续被刹回；自动驾驶贴线
       if (sim.auto) {
         sim.speed += (-maxV / 4.5) * dt;
         sim.stats.brakeTicks++;
       } else {
-        sim.speed += (-maxV / 1.8) * dt;
-        if (sim.keys.u) sim.speed += (-accel * 0.85) * dt;
+        // 校区/分区：允许短时越线以触发超速弹窗；雨夜回差关保持强刹，突出闪烁对比
+        if ((L.id === 'school' || L.id === 'zones') && sim.keys.u) {
+          const overBy = Math.max(0, sim.speed - (limit ?? sim.speed));
+          if (overBy < 10) sim.speed += (-maxV / 7) * dt;
+          else sim.speed += (-maxV / 1.9) * dt;
+        } else {
+          sim.speed += (-maxV / 1.8) * dt;
+          if (sim.keys.u) sim.speed += (-accel * 0.85) * dt;
+        }
         sim.stats.brakeTicks++;
         sim.stats.overTicks += dt;
         if (L.id !== 'sample') sim.stats.tickets += dt * 0.25;
@@ -306,6 +468,17 @@
       if (wantBrake && sim.speed < 8) sim.stats.dry += dt; // "stalled by over-strict threshold"
     }
 
+    // 同步越阈状态（供边沿检测）；弹窗由客户端 shouldQuiz 触发
+    {
+      const limNow = currentLimit(sim, z);
+      if (limNow != null) {
+        const over = sim.speed > limNow;
+        if (!sim.paused) {
+          // 不在此处清 overLimit 边沿，留给 shouldQuiz；若本帧未检查则保持
+          if (!over) sim.overLimit = false;
+        }
+      }
+    }
     sim.t++;
     if (sim.t >= L.ticks) sim.done = true;
     const row = snapshot(sim);
@@ -396,13 +569,22 @@
   function replay(levelId, seed, log) {
     const L = byId[levelId]; if (!L) throw new Error('未知关卡');
     const entries = expandLog(log);
+    for (const e of entries) if (e.viol) validateViolation(e.viol);
     const sim = create(levelId, seed);
     let i = 0;
     while (!sim.done) {
       while (i < entries.length && (entries[i].t || 0) <= sim.t) { applyLogEntry(sim, entries[i]); i++; }
       tick(sim);
+      const trig = shouldQuiz(sim);
+      if (trig && !entries.some(e => e.viol && (e.t || 0) === trig.t)) {
+        sim.violCooldownUntil = sim.t + COOLDOWN_TICKS;
+      }
     }
-    const { score, stars } = scoreOf(sim);
+    let { score, stars } = scoreOf(sim);
+    score = Math.max(0, score - (sim.stats.violations || 0) * 5);
+    if (score < L.stars[0]) stars = 0;
+    else if (score < L.stars[1]) stars = Math.min(stars, 1);
+    else if (score < L.stars[2]) stars = Math.min(stars, 2);
     const controls = {};
     for (const x of L.controls) controls[x.key] = { last: sim.ctrl[x.key] };
     return {
@@ -425,5 +607,5 @@
     applyLogEntry(sim, { ...patch, t: sim.t });
   }
 
-  return { LEVELS, byId, gate, create, tick, replay, control, valueAt, FPS, MAX_LOG, zoneAt, snapshot };
+  return { LEVELS, byId, gate, create, tick, replay, control, valueAt, FPS, MAX_LOG, READ_MS, GOALS, KNOWLEDGE, QUIZ, zoneAt, snapshot, shouldQuiz, knowledgeFor, pickQuestion, validateViolation, currentLimit };
 });

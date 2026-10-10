@@ -138,3 +138,71 @@ test('规则体现学习目标：连续车速+限速阈值；回差减闪烁；�
   assert.ok(manual.stats.tickets + 0.01 >= auto.stats.tickets, '手动油门更容易触发阈值干预/罚单');
   assert.ok(R.replay('school', 8, [{ t: 0, a: 40, auto: 1 }, { t: 100, auto: 0, u: 1 }]).stats.distance > 0, '中途可切换模式');
 });
+
+test('超速弹窗：阅读满3秒才算有效；不足3秒服务端拒绝；答错须再读', () => {
+  const base = { zone: 'school', zoneLabel: '校区', speed: 70, limit: 40, goal: 'threshold' };
+  // <3s 阅读
+  assert.throws(() => R.validateViolation({ ...base, reads: [{ ms: 2999 }], answers: [{ qid: 't1', choice: 1, correct: true }] }), /3秒/);
+  // 有效
+  const ok = R.validateViolation({ ...base, reads: [{ ms: 3000 }], answers: [{ qid: 't1', choice: 1, correct: true }] });
+  assert.equal(ok.firstOk, true);
+  // 答错后只读一次不够
+  assert.throws(() => R.validateViolation({
+    ...base,
+    reads: [{ ms: 3000 }],
+    answers: [{ qid: 't1', choice: 0, correct: false }, { qid: 't2', choice: 1, correct: true }]
+  }), /重新阅读/);
+  // 答错 + 两段阅读 + 换题答对
+  const ok2 = R.validateViolation({
+    ...base,
+    reads: [{ ms: 3000 }, { ms: 3100 }],
+    answers: [{ qid: 't1', choice: 0, correct: false }, { qid: 't2', choice: 1, correct: true }]
+  });
+  assert.equal(ok2.firstOk, false);
+  // 题目池按三目标
+  assert.equal(R.GOALS.length, 3);
+  assert.equal(R.QUIZ.data.length, 4);
+  assert.equal(R.QUIZ.continuous.length, 4);
+  assert.equal(R.QUIZ.threshold.length, 4);
+  // 换题：avoid 后不立刻重复（池够大时）
+  const a = R.pickQuestion('threshold', []);
+  const b = R.pickQuestion('threshold', [a.id, ...R.QUIZ.threshold.filter(q => q.id !== a.id).slice(0, 2).map(q => q.id)]);
+  assert.ok(b.id);
+});
+
+test('超速弹窗：replay 拒绝阅读不足的日志；合法 viol 会记入 stats', async () => {
+  const s = await start(), c = client(s.base);
+  try {
+    const me = (await c('/api/login', { classId: '601', id: 'g601-a' })).body;
+    await takeExam(c, me, 16);
+    const bad = await c('/api/game/result', run(me, 'school', 3, [
+      { t: 0, a: 40, u: 1 },
+      { t: 30, viol: { zone: 'school', speed: 70, limit: 40, goal: 'threshold', reads: [{ ms: 1000 }], answers: [{ qid: 't1', choice: 1, correct: true }] } }
+    ], 'bad-read'));
+    assert.equal(bad.status, 400, '阅读不足应拒绝');
+    const goodLog = [
+      { t: 0, a: 35, u: 1 },
+      { t: 40, viol: { zone: 'school', zoneLabel: '校区', speed: 72, limit: 35, goal: 'data', reads: [{ ms: 3200 }], answers: [{ qid: 'd1', choice: 1, correct: true }] } }
+    ];
+    const out = await c('/api/game/result', run(me, 'school', 5, goodLog, 'ok-viol'));
+    assert.equal(out.status, 200);
+    assert.ok(out.body.result.stats.violations >= 1);
+    assert.ok(out.body.result.stats.quizAsked >= 1);
+    assert.equal(out.body.result.stats.quizByGoal.data.asked, 1);
+  } finally { await s.stop(); }
+});
+
+test('超速边沿：shouldQuiz 在超过阈值时触发，冷却期内不重复', () => {
+  const sim = R.create('school', 2, { a: 40 });
+  R.control(sim, { u: 1, auto: 0 });
+  let hit = null;
+  for (let i = 0; i < 200 && !hit; i++) {
+    R.tick(sim);
+    hit = R.shouldQuiz(sim);
+  }
+  assert.ok(hit, '超速应触发弹窗');
+  assert.equal(hit.goal === 'data' || hit.goal === 'continuous' || hit.goal === 'threshold', true);
+  assert.ok(hit.knowledge.body.includes('km/h'));
+  // 立即再问：应空（边沿已过）
+  assert.equal(R.shouldQuiz(sim), null);
+});

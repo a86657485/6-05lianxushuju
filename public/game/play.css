@@ -48,3 +48,18 @@ button.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid 
 .drive-cue.hide{opacity:0;pointer-events:none;transform:translate(-50%,-50%) scale(.96)}
 #race-canvas:focus{outline:2px solid rgba(63,193,181,.5);outline-offset:-2px}
 .play-wrap{position:relative}
+.viol-modal{position:absolute;inset:0;z-index:20;background:rgba(4,8,20,.82);display:grid;place-items:center;padding:16px}
+.viol-card{width:min(520px,94vw);background:linear-gradient(160deg,#122038,#0a1528);border:1px solid rgba(255,122,122,.45);border-radius:20px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e8f1f8}
+.viol-card .kicker{color:#ff7a7a;font-size:13px;margin:0 0 6px;font-weight:700}
+.viol-card h2{margin:0 0 10px;font-size:22px}
+.viol-card .know{font-size:15px;line-height:1.65;color:#cfe0ee;background:rgba(255,255,255,.05);border-radius:12px;padding:12px 14px;margin:10px 0 14px}
+.viol-card .goal-tag{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px;background:rgba(63,193,181,.15);color:#7fe6dc;margin-bottom:8px}
+.viol-cd{font-size:28px;font-weight:800;color:#ffd166;text-align:center;margin:8px 0}
+.viol-cd.ready{color:#3fc1b5}
+.viol-card button.primary:disabled{opacity:.4;cursor:not-allowed}
+.viol-opts{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.viol-opts button{text-align:left;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#e8f1f8;cursor:pointer;font-size:14px}
+.viol-opts button:hover,.viol-opts button:focus{border-color:#3fc1b5;outline:none}
+.viol-opts button .num{display:inline-block;width:22px;height:22px;border-radius:50%;background:#1a2740;text-align:center;line-height:22px;margin-right:8px;font-size:12px}
+.viol-fb{min-height:22px;font-size:13px;margin:6px 0}
+.viol-fb.bad{color:#ff8a80}.viol-fb.good{color:#69f0ae}

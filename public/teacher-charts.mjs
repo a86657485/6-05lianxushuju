@@ -170,5 +170,24 @@ export function gameChart(students = []) {
   }).join('');
   const board = students.filter(s => s.game?.total > 0).sort((a, b) => b.game.total - a.game.total).slice(0, 5)
     .map((s, i) => `<li><b>${i + 1}</b> ${esc(s.student.name)} <span>${s.game.total}分 ★${s.game.stars}</span></li>`).join('');
-  return head + `<div class="g-wrap">${cols}<div class="g-col"><h3>本班排行 前5</h3><ol class="g-board">${board}</ol></div></div>`;
+  // 超速弹窗：违规次数 + 三目标首答正确
+  let violN = 0, asked = 0, firstOk = 0;
+  const byGoal = { data: { asked: 0, firstOk: 0 }, continuous: { asked: 0, firstOk: 0 }, threshold: { asked: 0, firstOk: 0 } };
+  for (const s of students) {
+    for (const r of (s.game?.runs || [])) {
+      violN += r.stats?.violations || 0;
+      asked += r.stats?.quizAsked || 0;
+      firstOk += r.stats?.quizFirstOk || 0;
+      const bg = r.stats?.quizByGoal || {};
+      for (const k of Object.keys(byGoal)) {
+        if (bg[k]) { byGoal[k].asked += bg[k].asked || 0; byGoal[k].firstOk += bg[k].firstOk || 0; }
+      }
+    }
+  }
+  const goalNames = { data: '数据', continuous: '连续量', threshold: '阈值' };
+  const violBlock = `<div class="g-col"><h3>超速弹窗 · 知识点问答</h3>
+    <p class="chart-subtitle">违规 ${violN} 次 · 问答 ${asked} 次 · 首答正确 ${firstOk}/${asked || 0}</p>
+    ${Object.entries(byGoal).map(([k, v]) => `<div class="g-bin"><span>${goalNames[k]}</span><i style="width:${w(v.firstOk, v.asked)}%;background:${C.done}"></i><b>${v.firstOk}/${v.asked}</b></div>`).join('') || '<p class="chart-subtitle">尚无超速问答</p>'}
+  </div>`;
+  return head + `<div class="g-wrap">${cols}${violBlock}<div class="g-col"><h3>本班排行 前5</h3><ol class="g-board">${board}</ol></div></div>`;
 }

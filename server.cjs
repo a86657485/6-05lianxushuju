@@ -151,7 +151,7 @@ function createService(options = {}) {
     if (!race.byId[body.level]) fail(400, '未知小游戏关卡');
     if (typeof body.runId !== 'string' || !body.runId.trim() || body.runId.length > 80) fail(400, '缺少有效记录标识');
     const seed = Number(body.seed); if (!Number.isInteger(seed) || seed < 1 || seed > 2147483647) fail(400, '数据编号不正确');
-    let r; try { r = race.replay(body.level, seed, body.log || []); } catch { fail(400, '操作记录格式不正确'); }
+    let r; try { r = race.replay(body.level, seed, body.log || []); } catch (err) { fail(400, (err && err.message) || '操作记录格式不正确'); }
     const g = data.game ||= { runs: [], best: {}, discoveries: {}, plays: 0, total: 0, stars: 0 };
     if (g.runs.some(x => x.runId === body.runId)) return { result: g.runs.find(x => x.runId === body.runId), status: gameStatus(s, data) };
     const run = { runId: body.runId, level: r.level, seed, score: r.score, stars: r.stars, stats: r.stats, controls: r.controls, claimed: Number(body.claimed) || null, created: now() };

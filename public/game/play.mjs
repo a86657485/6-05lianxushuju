@@ -8,7 +8,8 @@ const TEACHER = location.pathname.includes('game-test');
 let gateInfo = null, best = {}, discoveries = {}, runId = null, log = [], sim = null, L = null, me = null;
 let keys = { u: 0, d: 0, l: 0, r: 0 };
 let raf = 0, lastTs = 0, acc = 0, sprites = null, bgImg = null;
-let phase = 'boot'; // boot | hub | setup | race | result | final
+let phase = 'boot'; // boot | hub | setup | race | viol | result | final
+let violSession = null; // 当前超速弹窗会话
 
 async function api(path, body) {
   const res = await fetch(path, { method: body === undefined ? 'GET' : 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
@@ -144,7 +145,12 @@ function startRace(ctrl) {
   </div>`;
   renderLiveControls();
   bindModeToggle();
-  document.getElementById('btn-abort').onclick = () => { cancelAnimationFrame(raf); bindKeys(false); showHub(); };
+  document.getElementById('btn-abort').onclick = () => {
+    cancelAnimationFrame(raf); bindKeys(false);
+    if (violSession) { clearInterval(violSession.timer); if (window.__violKey) window.removeEventListener('keydown', window.__violKey); }
+    violSession = null; const m = document.getElementById('viol-modal'); if (m) m.remove();
+    showHub();
+  };
   bindKeys(true);
   const canvas = document.getElementById('race-canvas');
   canvas.tabIndex = 0;
@@ -234,23 +240,169 @@ function pushKeysIfChanged() {
 }
 
 function loop(ts) {
-  if (phase !== 'race' || !sim) return;
+  if (!sim || (phase !== 'race' && phase !== 'viol')) return;
+  if (phase === 'viol') {
+    drawRace();
+    updateHud();
+    raf = requestAnimationFrame(loop);
+    return;
+  }
   if (!lastTs) lastTs = ts;
   acc += (ts - lastTs) / 1000;
   lastTs = ts;
   const step = 1 / R.FPS;
   let guard = 0;
-  while (acc >= step && !sim.done && guard++ < 5) {
+  while (acc >= step && !sim.done && phase === 'race' && guard++ < 5) {
     pushKeysIfChanged();
     R.control(sim, { u: keys.u, d: keys.d, l: keys.l, r: keys.r });
     R.tick(sim);
+    const trig = R.shouldQuiz(sim);
+    if (trig) {
+      acc = 0;
+      openViolation(trig);
+      break;
+    }
     acc -= step;
   }
   drawRace();
   updateHud();
   if (window.__driveCue && (sim.speed > 2 || sim.auto || keys.u)) window.__driveCue.classList.add('hide');
-  if (sim.done) { cancelAnimationFrame(raf); bindKeys(false); finishRace(); return; }
+  if (sim.done && phase === 'race') { cancelAnimationFrame(raf); bindKeys(false); finishRace(); return; }
   raf = requestAnimationFrame(loop);
+}
+
+function openViolation(trig) {
+  phase = 'viol';
+  sim.paused = true;
+  keys.u = keys.d = keys.l = keys.r = 0;
+  const goalId = trig.goal;
+  violSession = {
+    trig,
+    goalId,
+    reads: [],
+    answers: [],
+    avoid: [],
+    readStarted: performance.now(),
+    readMs: 0,
+    step: 'read', // read | quiz
+    q: null,
+    timer: null
+  };
+  showViolRead();
+}
+
+function showViolRead() {
+  const vs = violSession; if (!vs) return;
+  vs.step = 'read';
+  vs.readStarted = performance.now();
+  vs.readMs = 0;
+  const k = vs.trig.knowledge;
+  const wrap = document.getElementById('play-wrap');
+  let modal = document.getElementById('viol-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'viol-modal'; modal.className = 'viol-modal'; wrap.appendChild(modal); }
+  modal.hidden = false;
+  modal.innerHTML = `<div class="viol-card" role="dialog" aria-modal="true">
+    <p class="kicker">规范：超过阈值须先学再开</p>
+    <span class="goal-tag">${k.goalName}</span>
+    <h2>${k.title}</h2>
+    <div class="know">${k.body}</div>
+    <div class="viol-cd" id="viol-cd">请阅读 3 秒…</div>
+    <p style="text-align:center;margin:0 0 12px;font-size:12px;color:var(--muted)">倒计时结束后才能继续（Enter）</p>
+    <p style="text-align:center"><button class="primary" id="viol-next" type="button" disabled>继续答题</button></p>
+  </div>`;
+  const btn = document.getElementById('viol-next');
+  const cd = document.getElementById('viol-cd');
+  clearInterval(vs.timer);
+  vs.timer = setInterval(() => {
+    const elapsed = performance.now() - vs.readStarted;
+    vs.readMs = elapsed;
+    const left = Math.max(0, R.READ_MS - elapsed);
+    if (left > 0) { cd.textContent = `请阅读 ${Math.ceil(left / 1000)} 秒…`; cd.className = 'viol-cd'; btn.disabled = true; }
+    else { cd.textContent = '✓ 可以继续'; cd.className = 'viol-cd ready'; btn.disabled = false; }
+  }, 100);
+  btn.onclick = () => {
+    if (performance.now() - vs.readStarted < R.READ_MS) return;
+    vs.reads.push({ ms: Math.round(performance.now() - vs.readStarted) });
+    clearInterval(vs.timer);
+    showViolQuiz();
+  };
+  if (window.__violKey) window.removeEventListener('keydown', window.__violKey);
+  window.__violKey = (e) => {
+    if (vs.step === 'read' && e.key === 'Enter' && !btn.disabled) btn.click();
+  };
+  window.addEventListener('keydown', window.__violKey);
+}
+
+function showViolQuiz() {
+  const vs = violSession; if (!vs) return;
+  vs.step = 'quiz';
+  vs.q = R.pickQuestion(vs.goalId, vs.avoid);
+  vs.avoid.push(vs.q.id);
+  const modal = document.getElementById('viol-modal');
+  modal.innerHTML = `<div class="viol-card" role="dialog" aria-modal="true">
+    <p class="kicker">超速问答 · ${(R.GOALS.find(g => g.id === vs.goalId) || {}).name || ''}</p>
+    <h2 style="font-size:18px">${vs.q.q}</h2>
+    <div class="viol-opts" id="viol-opts">
+      ${vs.q.options.map((o, i) => `<button type="button" data-i="${i}"><span class="num">${i + 1}</span>${o}</button>`).join('')}
+    </div>
+    <p class="viol-fb" id="viol-fb"></p>
+    <p style="font-size:12px;color:var(--muted);margin:0">按 1 / 2 / 3 / 4 选择</p>
+  </div>`;
+  const choose = (i) => {
+    const ok = i === vs.q.answer;
+    vs.answers.push({ qid: vs.q.id, choice: i, correct: ok });
+    const fb = document.getElementById('viol-fb');
+    if (ok) {
+      fb.className = 'viol-fb good'; fb.textContent = '✓ 正确！车速已降到限速内，继续巡查。';
+      setTimeout(finishViolation, 500);
+    } else {
+      fb.className = 'viol-fb bad'; fb.textContent = '✗ ' + (vs.q.tip || '再读一读知识点');
+      // 答错：重新阅读 ≥3 秒，再换题
+      setTimeout(() => {
+        vs.trig.knowledge = R.knowledgeFor(vs.goalId, { speed: vs.trig.speed, limit: vs.trig.limit, zoneLabel: vs.trig.zoneLabel, n: vs.answers.length });
+        showViolRead();
+      }, 900);
+    }
+  };
+  modal.querySelectorAll('#viol-opts button').forEach(b => b.onclick = () => choose(Number(b.dataset.i)));
+  if (window.__violKey) window.removeEventListener('keydown', window.__violKey);
+  window.__violKey = (e) => {
+    if (vs.step !== 'quiz') return;
+    if (e.key >= '1' && e.key <= '4') {
+      const i = Number(e.key) - 1;
+      if (i < vs.q.options.length) choose(i);
+    }
+  };
+  window.addEventListener('keydown', window.__violKey);
+}
+
+function finishViolation() {
+  const vs = violSession; if (!vs) return;
+  clearInterval(vs.timer);
+  if (window.__violKey) window.removeEventListener('keydown', window.__violKey);
+  const payload = {
+    t: vs.trig.t,
+    viol: {
+      zone: vs.trig.zone,
+      zoneLabel: vs.trig.zoneLabel,
+      speed: vs.trig.speed,
+      limit: vs.trig.limit,
+      goal: vs.goalId,
+      reads: vs.reads.slice(),
+      answers: vs.answers.slice()
+    }
+  };
+  log.push(payload);
+  R.control(sim, payload); // applyViolation via applyLogEntry
+  // 确保速度压到限速
+  if (sim.speed > vs.trig.limit) sim.speed = vs.trig.limit;
+  const modal = document.getElementById('viol-modal');
+  if (modal) modal.hidden = true;
+  violSession = null;
+  phase = 'race';
+  sim.paused = false;
+  lastTs = 0; acc = 0;
+  document.getElementById('race-canvas')?.focus({ preventScroll: true });
 }
 
 function updateHud() {
