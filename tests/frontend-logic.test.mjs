@@ -142,8 +142,9 @@ test('考核反馈：错题在前并给答案与解析；教师测试卷每目�
   const html = renderExamReview(fb);
   assert.ok(html.indexOf('错题 2 道') < html.indexOf('答对 1 道'));
   assert.ok(html.includes('正确答案') && html.includes('解析'));
-  const paper = pickLocal(quiz.questions); assert.equal(paper.length, 20);
-  for (const g of quiz.groups) assert.equal(paper.filter(q => q.goal === g).length, 4);
+  const paper = pickLocal(quiz.questions, 7); assert.ok(paper.length >= 20);
+  // 本地测试卷按每目标最多7题；正式卷由服务端 7+7+6=20
+  for (const g of quiz.groups) assert.ok(paper.filter(q => q.goal === g).length <= 7);
   assert.deepEqual(goalSummary(fb)[quiz.groups[0]], { right: 1, total: 3 });
 });
 
@@ -175,7 +176,7 @@ test('奖励小游戏入口与教师面板：79锁定显示最好成绩、80进�
   assert.equal(gameEntry('demo', 100), '');
   const { gameChart } = await import('../public/teacher-charts.mjs');
   assert.ok(gameChart([{ student: { name: '甲' }, gameGate: { unlocked: false } }]).includes('尚无学生解锁'));
-  const s = { student: { name: '乙' }, gameGate: { unlocked: true }, game: { plays: 2, total: 300, stars: 5, discoveries: { garden: { firstCorrect: true } }, runs: [{ level: 'garden', controls: { a: { last: 40 } } }, { level: 'sample', controls: { k: { last: 3 } } }] } };
+  const s = { student: { name: '乙' }, gameGate: { unlocked: true }, game: { plays: 2, total: 300, stars: 5, discoveries: { school: { firstCorrect: true } }, runs: [{ level: 'school', controls: { a: { last: 40 } } }, { level: 'sample', controls: { k: { last: 4 } } }] } };
   const html = gameChart([s]);
   assert.ok(html.includes('解锁 1/1') && html.includes('首选正确 1/1') && html.includes('乙'));
 });

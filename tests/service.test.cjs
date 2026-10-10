@@ -117,7 +117,7 @@ test('教师接口：本机可用；新轮次保留旧轮；重启后记录恢�
     const cls = (await c('/api/teacher/class?class=601')).body;
     assert.equal(cls.students.length, 3); assert.equal(cls.students.find(x => x.student.id === 't601-a').points, 10);
     assert.ok(cls.students.every(x => x.student.classId === '601'));
-    const ans = (await c('/api/teacher/answers')).body; assert.equal(ans.questions.length, 40); assert.equal(ans.goals.length, 5);
+    const ans = (await c('/api/teacher/answers')).body; assert.equal(ans.questions.length, 30); assert.equal(ans.goals.length, 3);
     assert.equal((await c('/api/teacher/live', { level: 150, threshold: 60, alarm: false, active: true, alarmCount: 0 })).status, 400);
     assert.equal((await c('/api/teacher/live', { level: 70, threshold: 60, alarm: true, active: true, alarmCount: 1 })).status, 200);
     assert.equal((await c('/api/live')).body.alarm, true);

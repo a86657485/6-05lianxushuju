@@ -7,7 +7,7 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const { DatabaseSync } = require('node:sqlite');
 const quiz = require('./quiz.cjs');
-const night = require('./public/game/night-core.js');
+const race = require('./public/game/race-core.js');
 const { isTeacherAddress, teacherOrigins, parseAllowList } = require('./teacher-access.cjs');
 
 const BASE = __dirname;
@@ -136,7 +136,7 @@ function createService(options = {}) {
 
   /* ---------- 奖励小游戏：最近一次20题考核 ≥80 分才解锁（服务端判定），成绩由服务端按操作记录重放得出 ---------- */
   function gameGate(data) {
-    return night.gate((data.quizAttempts || []).map(q => q.score));
+    return race.gate((data.quizAttempts || []).map(q => q.score));
   }
   function leaderboard(classId) {
     const round = roundOf(classId);
@@ -148,10 +148,10 @@ function createService(options = {}) {
   function gameResult(req, body) {
     const s = matchIdentity(req, body), data = state(s), gate = gameGate(data);
     if (!gate.unlocked) fail(403, '考核80分以上解锁', { gate });
-    if (!night.byId[body.level]) fail(400, '未知小游戏关卡');
+    if (!race.byId[body.level]) fail(400, '未知小游戏关卡');
     if (typeof body.runId !== 'string' || !body.runId.trim() || body.runId.length > 80) fail(400, '缺少有效记录标识');
     const seed = Number(body.seed); if (!Number.isInteger(seed) || seed < 1 || seed > 2147483647) fail(400, '数据编号不正确');
-    let r; try { r = night.replay(body.level, seed, body.log || []); } catch { fail(400, '操作记录格式不正确'); }
+    let r; try { r = race.replay(body.level, seed, body.log || []); } catch { fail(400, '操作记录格式不正确'); }
     const g = data.game ||= { runs: [], best: {}, discoveries: {}, plays: 0, total: 0, stars: 0 };
     if (g.runs.some(x => x.runId === body.runId)) return { result: g.runs.find(x => x.runId === body.runId), status: gameStatus(s, data) };
     const run = { runId: body.runId, level: r.level, seed, score: r.score, stars: r.stars, stats: r.stats, controls: r.controls, claimed: Number(body.claimed) || null, created: now() };
@@ -166,7 +166,7 @@ function createService(options = {}) {
   function gameDiscover(req, body) {
     const s = matchIdentity(req, body), data = state(s);
     if (!gameGate(data).unlocked) fail(403, '考核80分以上解锁');
-    const L = night.byId[body.level]; if (!L) fail(400, '未知小游戏关卡');
+    const L = race.byId[body.level]; if (!L) fail(400, '未知小游戏关卡');
     if (!L.discover.options.some(o => o[0] === body.choice)) fail(400, '请选择一项发现');
     const g = data.game ||= { runs: [], best: {}, discoveries: {}, plays: 0, total: 0, stars: 0 };
     const prev = g.discoveries[body.level];

@@ -1,5 +1,5 @@
 'use strict';
-/* 奖励小游戏：解锁门槛（最近一次考核≥80分）、服务端重放计分、伪造解锁/伪造成绩被拒、教师测试入口、规则本身体现学习目标。 */
+/* 奖励小游戏（智能限速卡丁车）：解锁门槛、服务端重放、伪造拒绝、教师入口、规则体现学习目标。 */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createService } = require('../server.cjs');
 const quiz = require('../quiz.cjs');
-const N = require('../public/game/night-core.js');
+const R = require('../public/game/race-core.js');
 
 const roster = [{ id: 'g601-a', classId: '601', name: '虚构游一' }, { id: 'g601-b', classId: '601', name: '虚构游二' }, { id: 'g601-c', classId: '601', name: '虚构游三' }];
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'lesson5-game-'));
@@ -27,7 +27,6 @@ function client(base) {
     return { status: res.status, body: ct.includes('json') ? await res.json() : await res.text() };
   };
 }
-/** 按目标分数作答：前 right 题选正确答案，其余选错（题目选项已打乱，用文字对答案）。 */
 async function takeExam(c, me, right) {
   const e = (await c('/api/exam/create', { sid: me.student.id, round: me.round })).body;
   const answers = {};
@@ -38,13 +37,14 @@ async function takeExam(c, me, right) {
   return (await c('/api/exam/submit', { sid: me.student.id, round: me.round, examId: e.id, answers })).body;
 }
 const run = (me, level, seed, log, runId = level + Math.random()) => ({ sid: me.student.id, round: me.round, runId, level, seed, log });
+const driveLog = (ctrl) => [{ t: 0, ...ctrl, u: 1, d: 0, l: 0, r: 0 }];
 
 test('解锁规则：79 锁定、80 解锁，看最近一次而不是最好一次', () => {
-  assert.equal(N.gate([79]).unlocked, false);
-  assert.equal(N.gate([80]).unlocked, true);
-  assert.equal(N.gate([]).unlocked, false);
-  const g = N.gate([90, 75]); assert.equal(g.unlocked, false, '最近一次75分：重新锁定'); assert.equal(g.best, 90); assert.equal(g.latest, 75);
-  assert.equal(N.gate([60, 85]).unlocked, true);
+  assert.equal(R.gate([79]).unlocked, false);
+  assert.equal(R.gate([80]).unlocked, true);
+  assert.equal(R.gate([]).unlocked, false);
+  const g = R.gate([90, 75]); assert.equal(g.unlocked, false, '最近一次75分：重新锁定'); assert.equal(g.best, 90); assert.equal(g.latest, 75);
+  assert.equal(R.gate([60, 85]).unlocked, true);
 });
 
 test('服务端门禁：未考/75分锁定并拒绝提交成绩，80分解锁；成绩按操作记录重放，伪造分数无效', async () => {
@@ -53,42 +53,39 @@ test('服务端门禁：未考/75分锁定并拒绝提交成绩，80分解锁；
     const me = (await c('/api/login', { classId: '601', id: 'g601-a' })).body;
     let st = (await c('/api/game/status')).body;
     assert.equal(st.unlocked, false); assert.equal(st.latest, null);
-    assert.equal((await c('/api/game/result', run(me, 'garden', 7, [{ t: 0, a: 45 }]))).status, 403, '未考核不能提交');
+    const log = driveLog({ a: 40 });
+    assert.equal((await c('/api/game/result', run(me, 'school', 7, log))).status, 403, '未考核不能提交');
     assert.equal((await takeExam(c, me, 15)).score, 75);
     st = (await c('/api/game/status')).body; assert.equal(st.unlocked, false); assert.equal(st.best, 75);
-    const forged = await c('/api/game/result', { ...run(me, 'garden', 7, [{ t: 0, a: 45 }]), unlocked: true, claimed: 9999 });
+    const forged = await c('/api/game/result', { ...run(me, 'school', 7, log), unlocked: true, claimed: 9999 });
     assert.equal(forged.status, 403, '前端声称解锁也没用'); assert.equal(forged.body.error, '考核80分以上解锁');
-    assert.equal((await c('/api/game/discover', { sid: me.student.id, round: me.round, level: 'garden', choice: 'ok' })).status, 403);
+    assert.equal((await c('/api/game/discover', { sid: me.student.id, round: me.round, level: 'school', choice: 'ok' })).status, 403);
     assert.equal((await takeExam(c, me, 16)).score, 80);
     st = (await c('/api/game/status')).body; assert.equal(st.unlocked, true); assert.equal(st.latest, 80);
-    const log = [{ t: 0, a: 45 }];
-    const out = await c('/api/game/result', { ...run(me, 'garden', 7, log, 'r1'), claimed: 9999 });
+    const out = await c('/api/game/result', { ...run(me, 'school', 7, log, 'r1'), claimed: 9999 });
     assert.equal(out.status, 200);
-    assert.equal(out.body.result.score, N.replay('garden', 7, log).score, '分数以服务端重放为准');
+    assert.equal(out.body.result.score, R.replay('school', 7, log).score, '分数以服务端重放为准');
     assert.notEqual(out.body.result.score, 9999);
     assert.equal(out.body.result.claimed, 9999, '保留自报值便于老师核对');
-    const again = await c('/api/game/result', { ...run(me, 'garden', 7, log, 'r1') });
+    const again = await c('/api/game/result', { ...run(me, 'school', 7, log, 'r1') });
     assert.equal(again.body.status.game.plays, 1, '同一局补传只记一次');
     assert.equal((await c('/api/game/result', run(me, 'nope', 7, log))).status, 400);
-    assert.equal((await c('/api/game/result', run(me, 'garden', 0, log))).status, 400);
-    assert.equal((await c('/api/game/result', run(me, 'garden', 7, Array(700).fill({ t: 1, a: 50 })))).status, 400);
-    const d = await c('/api/game/discover', { sid: me.student.id, round: me.round, level: 'garden', choice: 'two' });
+    assert.equal((await c('/api/game/result', run(me, 'school', 0, log))).status, 400);
+    assert.equal((await c('/api/game/result', run(me, 'school', 7, Array(700).fill({ t: 1, a: 50 })))).status, 400);
+    const d = await c('/api/game/discover', { sid: me.student.id, round: me.round, level: 'school', choice: 'jump' });
     assert.equal(d.body.discovery.firstCorrect, false);
-    const d2 = await c('/api/game/discover', { sid: me.student.id, round: me.round, level: 'garden', choice: 'ok' });
+    const d2 = await c('/api/game/discover', { sid: me.student.id, round: me.round, level: 'school', choice: 'ok' });
     assert.equal(d2.body.discovery.correct, true); assert.equal(d2.body.discovery.firstCorrect, false, '首选记录保留');
-    // 别人的身份不能代交
-    assert.equal((await c('/api/game/result', { ...run(me, 'garden', 7, log), sid: 'g601-b' })).status, 403);
-    // 排行榜与教师数据
+    assert.equal((await c('/api/game/result', { ...run(me, 'school', 7, log), sid: 'g601-b' })).status, 403);
     st = (await c('/api/game/status')).body;
     assert.equal(st.leaderboard[0].name, '虚构游一');
     const cls = (await c('/api/teacher/class?class=601')).body;
     const a = cls.students.find(x => x.student.id === 'g601-a');
-    assert.equal(a.gameGate.unlocked, true); assert.equal(a.game.best.garden.score, out.body.result.score);
-    assert.equal(a.game.runs[0].controls.a.last, 45, '记录学生选择的阈值');
-    // 再考低分：重新锁定
+    assert.equal(a.gameGate.unlocked, true); assert.equal(a.game.best.school.score, out.body.result.score);
+    assert.equal(a.game.runs[0].controls.a.last, 40, '记录学生选择的阈值');
     await takeExam(c, me, 10);
     assert.equal((await c('/api/game/status')).body.unlocked, false);
-    assert.equal((await c('/api/game/result', run(me, 'garden', 7, log))).status, 403);
+    assert.equal((await c('/api/game/result', run(me, 'school', 7, log))).status, 403);
   } finally { await s.stop(); }
 });
 
@@ -105,33 +102,39 @@ test('教师测试入口 /game-test 只给教师设备；学生入口 /game 人�
   } finally { await s.stop(); }
 });
 
-test('规则体现学习目标：同一晚数据，阈值不同结果不同；单阈值闪烁、两条线不闪；采样太稀漏事件、太密没电；报警线误报/漏报权衡', () => {
+test('规则体现学习目标：连续车速+限速阈值；回差减闪烁；采样稀密权衡；分区阈值改变结果；真正开车输入可重放', () => {
   const seeds = [1, 2, 3, 4, 5];
-  const avg = (lv, log, f = r => r.score) => seeds.reduce((n, s) => n + f(N.replay(lv, s, log)), 0) / seeds.length;
-  // ① 湿度连续变化：开泵线太低→太干，太高→太湿，合适→最好
-  assert.ok(avg('garden', [{ t: 0, a: 40 }]) > avg('garden', [{ t: 0, a: 15 }]) + 100);
-  assert.ok(avg('garden', [{ t: 0, a: 40 }]) > avg('garden', [{ t: 0, a: 75 }]) + 100);
-  assert.ok(avg('garden', [{ t: 0, a: 15 }], r => r.stats.dry) > 60, '开泵线太低：长时间太干');
-  assert.ok(avg('garden', [{ t: 0, a: 80 }], r => r.stats.flood) > 60, '开泵线太高：长时间太湿');
-  const e = N.create('garden', 3); const rows = []; while (!e.done) rows.push(N.tick(e));
-  assert.ok(rows.every((r, i) => !i || Math.abs(r.truth - rows[i - 1].truth) <= 2.7), '湿度每秒只变一点点：连续变化');
-  // ② 两个阈值（回差）避免频繁开关
-  const single = avg('lamp', [{ t: 0, a: 100, b: 100 }], r => r.stats.switches), band = avg('lamp', [{ t: 0, a: 100, b: 250 }], r => r.stats.switches);
-  assert.ok(single >= 8 && band <= 2, `单阈值开关${single}次，两条线${band}次`);
-  assert.ok(avg('lamp', [{ t: 0, a: 100, b: 250 }]) > avg('lamp', [{ t: 0, a: 100, b: 100 }]) + 60);
-  // ③ 采样间隔：每3秒最好；每1秒电池耗尽；每10秒漏事件
-  const k1 = N.replay('sample', 2, [{ t: 0, k: 1 }]), k3 = N.replay('sample', 2, [{ t: 0, k: 3 }]), k10 = N.replay('sample', 2, [{ t: 0, k: 10 }]);
-  assert.equal(k1.stats.battery, 0); assert.ok(k1.stats.missed > 0);
-  assert.equal(k3.stats.missed, 0); assert.ok(k10.stats.missed > 0);
-  assert.ok(k3.score > k1.score && k3.score > k10.score);
-  // ④ 报警线：低→误报多，高→漏报多
-  assert.ok(avg('alarm', [{ t: 0, a: 45 }], r => r.stats.falseAlarm) >= 5);
-  assert.ok(avg('alarm', [{ t: 0, a: 75 }], r => r.stats.missed) >= 2.5);
-  assert.ok(avg('alarm', [{ t: 0, a: 61 }]) > avg('alarm', [{ t: 0, a: 45 }]) + 50);
-  // 同一晚、同一操作 → 完全相同（可复现，服务端才能重算）
-  assert.deepEqual(N.replay('alarm', 9, [{ t: 0, a: 58 }, { t: 100, a: 62 }]), N.replay('alarm', 9, [{ t: 0, a: 58 }, { t: 100, a: 62 }]));
-  // 中途改阈值会改变结果
-  assert.notEqual(N.replay('garden', 4, [{ t: 0, a: 15 }]).score, N.replay('garden', 4, [{ t: 0, a: 15 }, { t: 60, a: 45 }]).score);
-  // 任意时刻的值（两个时刻之间插值）
-  assert.equal(N.valueAt([{ truth: 40 }, { truth: 50 }], 0.5), 45);
+  const avg = (lv, ctrl, f = r => r.score) => seeds.reduce((n, s) => n + f(R.replay(lv, s, driveLog(ctrl))), 0) / seeds.length;
+  // ① 合适校区限速 > 太低（到不了）和太高（罚单）
+  assert.ok(avg('school', { a: 40 }) > avg('school', { a: 15 }) + 80);
+  assert.ok(avg('school', { a: 40 }) > avg('school', { a: 80 }) + 20);
+  const e = R.create('school', 3); const rows = [];
+  R.control(e, { u: 1 }); while (!e.done) rows.push(R.tick(e));
+  assert.ok(rows.every((r, i) => !i || Math.abs(r.truth - rows[i - 1].truth) <= 12), '车速每帧只变一点点：连续变化');
+  // ② 回差：两条线分开时开关更少、分数更高
+  const sameSw = avg('rain', { a: 50, b: 50 }, r => r.stats.switches);
+  const gapSw = avg('rain', { a: 40, b: 70 }, r => r.stats.switches);
+  assert.ok(sameSw > gapSw, `无回差开关${sameSw} > 有回差${gapSw}`);
+  assert.ok(avg('rain', { a: 40, b: 70 }) > avg('rain', { a: 50, b: 50 }) + 30);
+  // ③ 采样：每0.2秒最好
+  const k1 = R.replay('sample', 2, driveLog({ k: 1 })), k4 = R.replay('sample', 2, driveLog({ k: 4 })), k12 = R.replay('sample', 2, driveLog({ k: 12 }));
+  assert.equal(k1.stats.battery, 0);
+  assert.ok(k4.stats.missed < k12.stats.missed || k4.score > k12.score);
+  assert.ok(k4.score > k1.score && k4.score > k12.score);
+  // ④ 分区阈值
+  assert.ok(avg('zones', { a: 38, b: 95, c: 55 }) > avg('zones', { a: 20, b: 120, c: 90 }) + 50);
+  // 可复现 + 中途改阈值改变结果
+  assert.deepEqual(R.replay('school', 9, [{ t: 0, a: 40, u: 1 }, { t: 80, a: 70 }]), R.replay('school', 9, [{ t: 0, a: 40, u: 1 }, { t: 80, a: 70 }]));
+  assert.notEqual(R.replay('school', 4, [{ t: 0, a: 25, u: 1 }]).score, R.replay('school', 4, [{ t: 0, a: 25, u: 1 }, { t: 60, a: 42 }]).score);
+  assert.equal(R.valueAt([{ truth: 40 }, { truth: 50 }], 0.5), 45);
+  // 方向键驾驶：有油门才跑得远
+  const idle = R.replay('school', 1, [{ t: 0, a: 40, u: 0 }]);
+  const go = R.replay('school', 1, [{ t: 0, a: 40, u: 1 }]);
+  assert.ok(go.stats.distance > idle.stats.distance + 50, '按加速键才真正开车');
+  // 自动驾驶：不按键也能按阈值巡航；手动猛加速更容易超速吃罚单
+  const manual = R.replay('school', 8, [{ t: 0, a: 40, u: 1, auto: 0 }]);
+  const auto = R.replay('school', 8, [{ t: 0, a: 40, u: 0, auto: 1 }]);
+  assert.ok(auto.stats.laps > 0.5, '自动驾驶能跟着阈值跑完大半圈');
+  assert.ok(manual.stats.tickets + 0.01 >= auto.stats.tickets, '手动油门更容易触发阈值干预/罚单');
+  assert.ok(R.replay('school', 8, [{ t: 0, a: 40, auto: 1 }, { t: 100, auto: 0, u: 1 }]).stats.distance > 0, '中途可切换模式');
 });

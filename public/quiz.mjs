@@ -12,10 +12,11 @@ export function goalSummary(feedback) {
   for (const q of feedback) { out[q.goal] ||= { right: 0, total: 0 }; out[q.goal].total++; if (q.correct) out[q.goal].right++; }
   return out;
 }
-/** 教师测试卷：从题库每个目标随机抽4题。 */
-export function pickLocal(questions, perGoal = 4) {
+/** 教师测试卷：按三条学习目标抽题；默认 7/7/6 共20题。 */
+export function pickLocal(questions, perGoal = [7, 7, 6]) {
   const goals = [...new Set(questions.map(q => q.goal))];
-  return goals.flatMap(g => questions.filter(q => q.goal === g).map(q => ({ q, n: Math.random() })).sort((a, b) => a.n - b.n).slice(0, perGoal).map(v => v.q));
+  const counts = Array.isArray(perGoal) ? perGoal : goals.map(() => perGoal);
+  return goals.flatMap((g, i) => questions.filter(q => q.goal === g).map(q => ({ q, n: Math.random() })).sort((a, b) => a.n - b.n).slice(0, counts[i] ?? counts[0]).map(v => v.q));
 }
 
 export class QuizView {
@@ -100,10 +101,10 @@ export class QuizView {
 /** 奖励小游戏入口：最近一次考核 ≥80 分才解锁（服务端 /api/game/status 再次判定）。 */
 export const GAME_PASS = 80;
 export function gameEntry(mode, latest, attempts = []) {
-  if (mode === 'test') return `<div class="game-entry open" id="game-entry"><b>🎮 奖励小游戏 · 小递夜巡</b><span>教师测试：不受分数限制，记录只留在本页。</span><a class="go-btn" id="game-link" href="/game-test">试玩奖励小游戏</a></div>`;
+  if (mode === 'test') return `<div class="game-entry open" id="game-entry"><b>🎮 奖励小游戏 · 智能限速卡丁车</b><span>教师测试：不受分数限制，记录只留在本页。</span><a class="go-btn" id="game-link" href="/game-test">试玩卡丁车小游戏</a></div>`;
   if (mode !== 'student') return '';
   if (latest == null) return `<div class="game-entry locked" id="game-entry"><b>🔒 奖励小游戏 · 考核80分以上解锁</b><span>还没有参加20题考核。</span></div>`;
   const best = attempts.length ? Math.max(...attempts.map(a => a.score)) : latest;
-  if (latest >= GAME_PASS) return `<div class="game-entry open" id="game-entry"><b>🎮 奖励小游戏已解锁</b><span>当小区自动管家：拖动阈值线，让浇水、路灯、噪声监测自动运行。</span><a class="go-btn" id="game-link" href="/game">进入奖励小游戏</a></div>`;
+  if (latest >= GAME_PASS) return `<div class="game-entry open" id="game-entry"><b>🎮 奖励小游戏已解锁</b><span>开卡丁车巡查：方向键驾驶，车速表是连续数据，限速线是你设的阈值。</span><a class="go-btn" id="game-link" href="/game">进入卡丁车小游戏</a></div>`;
   return `<div class="game-entry locked" id="game-entry"><b>🔒 奖励小游戏 · 考核80分以上解锁</b><span>这次 ${latest} 分，你的最好成绩 ${best} 分。看完错题再考一次吧。</span></div>`;
 }
