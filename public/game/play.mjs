@@ -290,94 +290,262 @@ function drawSpark() {
   ctx.stroke();
 }
 
-/* ---- Pseudo-3D road render (adapted from javascript-racer MIT) ---- */
+/* ---- Pseudo-3D road render（按 javascript-racer MIT 正确投影重写） ---- */
 const SPR = {
   PLAYER_LEFT: { x: 995, y: 480, w: 80, h: 41 },
   PLAYER_STRAIGHT: { x: 1085, y: 480, w: 80, h: 41 },
   PLAYER_RIGHT: { x: 995, y: 531, w: 80, h: 41 },
   TREE: { x: 625, y: 5, w: 360, h: 360 },
-  BILLBOARD: { x: 625, y: 375, w: 300, h: 170 }
+  PALM: { x: 5, y: 5, w: 215, h: 540 },
+  BILLBOARD: { x: 625, y: 375, w: 300, h: 170 },
+  COLUMN: { x: 995, y: 5, w: 200, h: 315 }
 };
+const SEG_LEN = 200;
+const CAM_H = 1000;
+const DRAW_N = 100;
+const FOG_D = 5;
+const LANES = 3;
 
-function drawRace() {
-  const canvas = document.getElementById('race-canvas'); if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  const progress = (sim.pos / L.trackLen) % 1;
-  const camH = 1000, camD = 1 / Math.tan((60 / 2) * Math.PI / 180);
-  // sky / bg
-  ctx.fillStyle = '#0b1a33'; ctx.fillRect(0, 0, W, H * 0.45);
-  if (bgImg) {
-    const off = (progress * 800 + sim.x * 40) % bgImg.width;
-    ctx.globalAlpha = 0.55;
-    ctx.drawImage(bgImg, -off, 0, bgImg.width, H * 0.5);
-    ctx.drawImage(bgImg, -off + bgImg.width, 0, bgImg.width, H * 0.5);
-    ctx.globalAlpha = 1;
-  }
-  // stars
-  ctx.fillStyle = '#fff';
-  for (let i = 0; i < 40; i++) ctx.fillRect((i * 97 + progress * 200) % W, (i * 53) % (H * 0.4), 2, 2);
+function camDepth() { return 1 / Math.tan(((100) / 2) * Math.PI / 180); }
 
-  const roadW = 2000, segN = sim.track.length;
-  const start = Math.floor(progress * segN) % segN;
-  let x = 0, dx = 0, maxy = H;
-  const drawSegs = [];
-  for (let n = 0; n < 80; n++) {
-    const i = (start + n) % segN;
-    const seg = sim.track[i];
-    const p1 = project(0, 0, n * 200, sim.x * roadW, camH, camD, W, H, roadW);
-    const p2 = project(0, 0, (n + 1) * 200, sim.x * roadW - x - dx, camH, camD, W, H, roadW);
-    x += dx; dx += seg.curve;
-    if (p1.y >= p2.y) continue;
-    drawSegs.push({ p1, p2, seg, i, n, dark: ((start + n) % 2) === 0 });
-  }
-  for (let k = drawSegs.length - 1; k >= 0; k--) {
-    const { p1, p2, dark, n } = drawSegs[k];
-    const grass = dark ? '#0d2a1a' : '#0a2216';
-    const rumble = dark ? '#eee' : '#c62828';
-    const road = dark ? '#2a2a2e' : '#34343a';
-    polygon(ctx, 0, p1.y, W, p1.y, W, p2.y, 0, p2.y, grass);
-    polygon(ctx, p1.x - p1.w * 1.1, p1.y, p1.x + p1.w * 1.1, p1.y, p2.x + p2.w * 1.1, p2.y, p2.x - p2.w * 1.1, p2.y, rumble);
-    polygon(ctx, p1.x - p1.w, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, road);
-    // lane
-    if (dark) polygon(ctx, p1.x - p1.w * 0.02, p1.y, p1.x + p1.w * 0.02, p1.y, p2.x + p2.w * 0.02, p2.y, p2.x - p2.w * 0.02, p2.y, '#ccc');
-    // speed limit signs every few segs
-    if (n > 5 && n % 18 === 0 && sprites) {
-      const sc = p2.scale * 800;
-      const spr = SPR.BILLBOARD;
-      ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, p2.x - sc * 0.6, p2.y - sc * 0.45, sc * 0.55, sc * 0.35);
-    }
-    maxy = p1.y;
-  }
-  // player car
-  const bounce = (1 + Math.sin(sim.t / 3) * 0.02) * (sim.speed / L.maxSpeed);
-  let spr = SPR.PLAYER_STRAIGHT;
-  if (keys.l) spr = SPR.PLAYER_LEFT;
-  if (keys.r) spr = SPR.PLAYER_RIGHT;
-  const pw = 80 * 1.6, ph = 41 * 1.6;
-  const px = W / 2 - pw / 2, py = H - ph - 20 - bounce * 6;
-  if (sprites) ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, px, py, pw, ph);
-  else { ctx.fillStyle = '#3fc1b5'; ctx.fillRect(px, py, pw, ph); }
-  // speed flash when over
-  const row = sim.history[sim.history.length - 1];
-  if (row?.on) { ctx.fillStyle = 'rgba(255,60,60,.18)'; ctx.fillRect(0, 0, W, H); }
-  else if (row?.warn) { ctx.fillStyle = 'rgba(255,200,60,.10)'; ctx.fillRect(0, 0, W, H); }
-}
-
-function project(x, y, z, camX, camY, camD, W, H, roadW) {
-  const camZ = z || 1;
-  const scale = camD / camZ;
+function projectPoint(worldX, worldY, worldZ, camX, camY, camZ, depth, W, H, roadW) {
+  const cx = worldX - camX, cy = worldY - camY, cz = worldZ - camZ;
+  if (cz <= depth * 0.1) return null;
+  const scale = depth / cz;
   return {
-    x: Math.round(W / 2 + scale * (x - camX) * W / 2),
-    y: Math.round(H / 2 - scale * (y - camY) * H / 2),
+    x: Math.round(W / 2 + scale * cx * W / 2),
+    y: Math.round(H / 2 - scale * cy * H / 2),
     w: Math.round(scale * roadW * W / 2),
-    scale
+    scale, cz
   };
 }
-function polygon(ctx, x1, y1, x2, y2, x3, y3, x4, y4, color) {
-  ctx.fillStyle = color; ctx.beginPath();
+
+function rumbleW(w) { return w / Math.max(6, 2 * LANES); }
+function laneW(w) { return w / Math.max(32, 8 * LANES); }
+
+function zoneTheme(zoneId, L) {
+  // 路段差异：草地/路缘/天空色/雾
+  const themes = {
+    school:  { grassA: '#1a5c28', grassB: '#144820', rumbleA: '#e8e8e8', rumbleB: '#c62828', roadA: '#4a4a50', roadB: '#3e3e44', sky: '#0c1a36', fog: 'rgba(10,25,50,', tint: null, curb: '#ffd54f' },
+    open:    { grassA: '#145020', grassB: '#0e3c18', rumbleA: '#ddd', rumbleB: '#b71c1c', roadA: '#505056', roadB: '#44444a', sky: '#0a1528', fog: 'rgba(8,18,40,', tint: null, curb: '#fff' },
+    wet:     { grassA: '#0d3a2a', grassB: '#0a2e22', rumbleA: '#90a4ae', rumbleB: '#37474f', roadA: '#2c3540', roadB: '#24303a', sky: '#061018', fog: 'rgba(20,40,55,', tint: 'rgba(60,100,140,.12)', curb: '#78909c' },
+    tunnel:  { grassA: '#1a1a22', grassB: '#121218', rumbleA: '#ff8f00', rumbleB: '#e65100', roadA: '#2a2a30', roadB: '#222228', sky: '#020208', fog: 'rgba(0,0,0,', tint: 'rgba(0,0,0,.25)', curb: '#ffb300' },
+    highway: { grassA: '#0e4a30', grassB: '#0a3a24', rumbleA: '#fff', rumbleB: '#ffc107', roadA: '#55555c', roadB: '#484850', sky: '#0b1830', fog: 'rgba(12,22,45,', tint: null, curb: '#ffeb3b' },
+    school2: { grassA: '#1a5c28', grassB: '#144820', rumbleA: '#e8e8e8', rumbleB: '#c62828', roadA: '#4a4a50', roadB: '#3e3e44', sky: '#0c1a36', fog: 'rgba(10,25,50,', tint: null, curb: '#ffd54f' }
+  };
+  return themes[zoneId] || themes.open;
+}
+
+function limitForZone(z) {
+  if (!z) return 60;
+  if (z.fixed != null) return z.fixed;
+  if (z.limitKey) return sim.ctrl[z.limitKey];
+  if (z.warnKey) return Math.max(sim.ctrl[z.warnKey], sim.ctrl[z.brakeKey]);
+  return 60;
+}
+
+function drawSpeedSign(ctx, x, y, scale, limit, theme) {
+  const s = Math.max(10, scale * 420);
+  const w = s * 0.55, h = s * 0.7;
+  const bx = x - w / 2, by = y - h;
+  // pole
+  ctx.fillStyle = '#78909c';
+  ctx.fillRect(x - 2, by + h * 0.55, 4, h * 0.55);
+  // board
+  ctx.fillStyle = '#eceff1';
+  roundRectFill(ctx, bx, by, w, h * 0.55, 6);
+  ctx.strokeStyle = '#c62828'; ctx.lineWidth = Math.max(2, s * 0.04);
+  roundRectStroke(ctx, bx, by, w, h * 0.55, 6);
+  ctx.fillStyle = '#212121';
+  ctx.font = `bold ${Math.max(10, s * 0.22)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(String(Math.round(limit)), x, by + h * 0.28);
+  ctx.font = `${Math.max(7, s * 0.1)}px sans-serif`;
+  ctx.fillText('km/h', x, by + h * 0.42);
+  ctx.textAlign = 'left';
+}
+
+function roundRectFill(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); ctx.fill();
+}
+function roundRectStroke(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); ctx.stroke();
+}
+
+function poly(ctx, x1, y1, x2, y2, x3, y3, x4, y4, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
   ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.lineTo(x4, y4);
   ctx.closePath(); ctx.fill();
+}
+
+function drawSegment(ctx, W, x1, y1, w1, x2, y2, w2, fog, theme, dark, lanes) {
+  const r1 = rumbleW(w1), r2 = rumbleW(w2);
+  const l1 = laneW(w1), l2 = laneW(w2);
+  // grass strip (full width band)
+  ctx.fillStyle = dark ? theme.grassB : theme.grassA;
+  ctx.fillRect(0, y2, W, Math.max(1, y1 - y2));
+  // yellow/white curb (outer thin strip beyond rumble)
+  const c1 = rumbleW(w1) * 0.45, c2 = rumbleW(w2) * 0.45;
+  poly(ctx, x1 - w1 - r1 - c1, y1, x1 - w1 - r1, y1, x2 - w2 - r2, y2, x2 - w2 - r2 - c2, y2, theme.curb);
+  poly(ctx, x1 + w1 + r1, y1, x1 + w1 + r1 + c1, y1, x2 + w2 + r2 + c2, y2, x2 + w2 + r2, y2, theme.curb);
+  // rumble
+  poly(ctx, x1 - w1 - r1, y1, x1 - w1, y1, x2 - w2, y2, x2 - w2 - r2, y2, dark ? theme.rumbleB : theme.rumbleA);
+  poly(ctx, x1 + w1, y1, x1 + w1 + r1, y1, x2 + w2 + r2, y2, x2 + w2, y2, dark ? theme.rumbleB : theme.rumbleA);
+  // asphalt
+  poly(ctx, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, dark ? theme.roadB : theme.roadA);
+  // dashed center / lane markers (only on "light" segments = dashed look)
+  if (!dark) {
+    let lanew1 = w1 * 2 / lanes, lanew2 = w2 * 2 / lanes;
+    let lanex1 = x1 - w1 + lanew1, lanex2 = x2 - w2 + lanew2;
+    for (let lane = 1; lane < lanes; lanex1 += lanew1, lanex2 += lanew2, lane++) {
+      poly(ctx, lanex1 - l1 / 2, y1, lanex1 + l1 / 2, y1, lanex2 + l2 / 2, y2, lanex2 - l2 / 2, y2, '#d0d0d0');
+    }
+  }
+  // fog
+  if (fog < 1) {
+    ctx.fillStyle = theme.fog + (1 - fog).toFixed(3) + ')';
+    ctx.fillRect(0, y2, W, Math.max(1, y1 - y2));
+  }
+}
+
+function drawRace() {
+  const canvas = document.getElementById('race-canvas'); if (!canvas || !sim) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const roadW = 2000;
+  const depth = camDepth();
+  const track = sim.track;
+  const segN = track.length;
+  const trackLen = segN * SEG_LEN;
+  // player position along infinite looping track (metres → segment index)
+  const position = ((sim.pos % trackLen) + trackLen) % trackLen;
+  const baseIdx = Math.floor(position / SEG_LEN) % segN;
+  const basePct = (position % SEG_LEN) / SEG_LEN;
+  const playerZ = CAM_H; // camera sits this far "behind" projection math like racer's playerZ≈cameraHeight
+  // current segment world Y for camera
+  const seg0 = track[baseIdx], seg1 = track[(baseIdx + 1) % segN];
+  const playerY = seg0.y + (seg1.y - seg0.y) * basePct;
+
+  const zNow = R.zoneAt(L, (sim.pos / L.trackLen) % 1);
+  const themeNow = zoneTheme(zNow.id, L);
+
+  // sky
+  ctx.fillStyle = themeNow.sky;
+  ctx.fillRect(0, 0, W, H);
+  if (bgImg) {
+    const off = ((position * 0.02) + sim.x * 40) % bgImg.width;
+    ctx.globalAlpha = L.id === 'sample' ? 0.15 : (L.id === 'rain' ? 0.35 : 0.5);
+    ctx.drawImage(bgImg, -off, 0, bgImg.width, H * 0.55);
+    ctx.drawImage(bgImg, -off + bgImg.width, 0, bgImg.width, H * 0.55);
+    ctx.globalAlpha = 1;
+  }
+  // stars / rain
+  if (L.id !== 'sample') {
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 50; i++) ctx.fillRect((i * 97 + position * 0.05) % W, (i * 53) % (H * 0.42), 2, 2);
+  }
+  if (L.id === 'rain') {
+    ctx.strokeStyle = 'rgba(180,210,255,.35)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 40; i++) {
+      const rx = (i * 137 + sim.t * 9) % W, ry = (i * 89 + sim.t * 14) % H;
+      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 12); ctx.stroke();
+    }
+  }
+  if (L.id === 'sample') {
+    // tunnel ceiling vignette
+    const g = ctx.createLinearGradient(0, 0, 0, H * 0.5);
+    g.addColorStop(0, '#000'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.5);
+  }
+
+  let x = 0, dx = -(seg0.curve || 0) * basePct;
+  let maxy = H;
+  const projected = [];
+
+  for (let n = 0; n < DRAW_N; n++) {
+    const idx = (baseIdx + n) % segN;
+    const seg = track[idx];
+    const looped = idx < baseIdx;
+    // 相对摄像机的前方距离（与 javascript-racer: world.z - position 一致）
+    const worldZ1 = n * SEG_LEN - basePct * SEG_LEN;
+    const worldZ2 = worldZ1 + SEG_LEN;
+    const p1 = projectPoint(0, seg.y, worldZ1, sim.x * roadW - x, playerY + CAM_H, 0, depth, W, H, roadW);
+    const p2 = projectPoint(0, track[(idx + 1) % segN].y, worldZ2, sim.x * roadW - x - dx, playerY + CAM_H, 0, depth, W, H, roadW);
+    x += dx;
+    dx += seg.curve || 0;
+    if (!p1 || !p2) continue;
+    if (p1.cz <= depth || p2.y >= p1.y || p2.y >= maxy) continue;
+    const fog = 1 / Math.pow(Math.E, (n / DRAW_N) * (n / DRAW_N) * FOG_D);
+    projected.push({ p1, p2, seg, n, idx, fog, dark: ((baseIdx + n) % 2) === 0 });
+    maxy = p1.y;
+  }
+
+  // draw far → near
+  for (let k = projected.length - 1; k >= 0; k--) {
+    const { p1, p2, seg, n, fog, dark } = projected[k];
+    const theme = zoneTheme(seg.zoneId, L);
+    drawSegment(ctx, W, p1.x, p1.y, p1.w, p2.x, p2.y, p2.w, fog, theme, dark, LANES);
+
+    // roadside trees / columns (every few segs)
+    if (sprites && n > 2 && n % 7 === 0 && L.id !== 'sample') {
+      const sc = p1.scale;
+      const spr = (n % 14 === 0) ? SPR.PALM : SPR.TREE;
+      const destW = spr.w * sc * 0.35;
+      const destH = spr.h * sc * 0.35;
+      const side = (n % 2 === 0) ? -1 : 1;
+      const sx = p1.x + side * p1.w * 1.35 - (side < 0 ? destW : 0);
+      const sy = p1.y - destH;
+      if (sy < p1.y) ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, sx, sy, destW, destH);
+    }
+    // tunnel pillars
+    if (sprites && L.id === 'sample' && n > 2 && n % 5 === 0) {
+      const sc = p1.scale;
+      const spr = SPR.COLUMN;
+      const destW = spr.w * sc * 0.4, destH = spr.h * sc * 0.4;
+      ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, p1.x - p1.w * 1.2 - destW, p1.y - destH, destW, destH);
+      ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, p1.x + p1.w * 1.2, p1.y - destH, destW, destH);
+    }
+    // speed-limit billboards
+    if (n > 4 && n % 15 === 0) {
+      const z = R.zoneAt(L, ((baseIdx + n) / segN) % 1);
+      const lim = limitForZone(z);
+      const side = (n % 30 === 0) ? -1 : 1;
+      const sx = p1.x + side * p1.w * 1.15;
+      drawSpeedSign(ctx, sx, p1.y, p1.scale, lim, theme);
+    }
+  }
+
+  // zone tint overlay
+  if (themeNow.tint) { ctx.fillStyle = themeNow.tint; ctx.fillRect(0, 0, W, H); }
+
+  // player car
+  const bounce = Math.sin(sim.t / 2.5) * 1.5 * (sim.speed / L.maxSpeed);
+  let spr = SPR.PLAYER_STRAIGHT;
+  if (!sim.auto && keys.l) spr = SPR.PLAYER_LEFT;
+  if (!sim.auto && keys.r) spr = SPR.PLAYER_RIGHT;
+  // 车辆大小：与 racer 的 cameraDepth/playerZ 一致，再乘路宽系数
+  const carScale = depth / playerZ;
+  const pw = Math.max(60, spr.w * carScale * roadW * 0.8);
+  const ph = Math.max(30, spr.h * carScale * roadW * 0.8);
+  const px = W / 2 - pw / 2;
+  const py = H - ph - 12 - bounce;
+  if (sprites) ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, px, py, pw, ph);
+  else { ctx.fillStyle = '#3fc1b5'; ctx.fillRect(px, py, pw, ph); }
+
+  // HUD ribbon: current zone
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.fillRect(12, 12, 220, 36);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif';
+  ctx.fillText(`${zNow.label} · 限速 ${Math.round(limitForZone(zNow))}`, 22, 36);
+
+  const row = sim.history[sim.history.length - 1];
+  if (row?.on) { ctx.fillStyle = 'rgba(255,60,60,.15)'; ctx.fillRect(0, 0, W, H); }
+  else if (row?.warn) { ctx.fillStyle = 'rgba(255,200,60,.08)'; ctx.fillRect(0, 0, W, H); }
 }
 
 async function finishRace() {

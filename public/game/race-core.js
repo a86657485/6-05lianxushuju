@@ -95,13 +95,29 @@
 
   function buildTrack(L, seed) {
     const R = rng(seed * 9973 + L.n * 131), segs = [];
-    const n = 200;
+    const n = 240;
+    const bends = [];
+    let t = 10;
+    while (t < n - 20) {
+      const len = 12 + Math.floor(R() * 18);
+      const dir = R() < 0.5 ? -1 : 1;
+      const strength = (L.id === 'rain' ? 3.2 : 2.2) * (0.6 + R() * 0.8);
+      bends.push({ from: t, to: Math.min(n - 5, t + len), curve: dir * strength });
+      t += len + 8 + Math.floor(R() * 20);
+    }
     for (let i = 0; i < n; i++) {
       const p = i / n;
       let curve = 0;
-      if (R() < 0.35) curve = (R() - 0.5) * 4;
-      if (L.id === 'rain' && p > 0.3 && p < 0.7) curve *= 1.4;
-      segs.push({ curve, y: Math.sin(p * Math.PI * 2) * (L.id === 'sample' ? 0 : 8) });
+      for (const b of bends) {
+        if (i >= b.from && i < b.from + 4) curve = b.curve * ((i - b.from) / 4);
+        else if (i >= b.to - 4 && i < b.to) curve = b.curve * ((b.to - i) / 4);
+        else if (i >= b.from && i < b.to) curve = b.curve;
+      }
+      const yAmp = L.id === 'sample' ? 0 : (L.id === 'rain' ? 12 : 8);
+      const y = Math.sin(p * Math.PI * 2) * yAmp + Math.sin(p * Math.PI * 5) * (yAmp * 0.25);
+      let zoneId = L.zones[L.zones.length - 1].id, zoneLabel = L.zones[L.zones.length - 1].label;
+      for (const z of L.zones) if (p >= z.from && p < z.to) { zoneId = z.id; zoneLabel = z.label; break; }
+      segs.push({ curve, y, zoneId, zoneLabel });
     }
     return segs;
   }
