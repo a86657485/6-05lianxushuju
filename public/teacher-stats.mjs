@@ -27,7 +27,7 @@ export function summarizeClass(payload, stages, goals = [], R = globalThis.Lesso
     const withPred = sums.filter(x => x.m.prediction);
     const reached = sums.filter(x => x.sub || x.m.conceptHintLevel > 0);
     return {
-      id: st.id, name: st.name, short: st.short,
+      id: st.id, name: st.name, short: st.short, goal: st.goal || null, focus: st.focus || null,
       complete: sums.filter(x => x.done).length,
       started: started.length,
       inProgress: sums.filter(x => x.started && !x.done).length,
@@ -88,25 +88,34 @@ export function summarizeClass(payload, stages, goals = [], R = globalThis.Lesso
   }
   const last = students.map(s => isoMs(s.updated)).filter(Boolean).sort((a, b) => b - a)[0] || null;
 
-  /* 第4站：学生运行过的阈值与提示次数（同一学生同一阈值只计一次）；第5站：湿度方案的阈值与最高湿度 */
-  const thr = new Map(), garden = [];
+  /* 第4站：学生运行过的阈值与提示次数（同一学生同一阈值只计一次）；第5站：教室噪声监测器试过的阈值与结果 */
+  const thr = new Map(), cls = new Map();
   for (const s of students) {
     const ts = s.records?.threshold?.latest?.trials || [];
     for (const t of ts) if (Number.isInteger(t.threshold) && Number.isInteger(t.alarms)) {
       const k = t.threshold + '|' + t.alarms, row = thr.get(k) || { threshold: t.threshold, alarms: t.alarms, students: new Set() };
       row.students.add(s.student.name); thr.set(k, row);
     }
-    const seen = new Set();
-    for (const t of s.records?.design?.latest?.trials || []) if (t.data === 'moisture' && t.direction === 'below' && Number.isFinite(t.threshold) && Number.isFinite(t.max)) {
-      const k = t.threshold; if (seen.has(k)) continue; seen.add(k); garden.push({ threshold: t.threshold, max: t.max, min: t.min, fit: !!t.fit, name: s.student.name });
+    for (const t of s.records?.design?.latest?.trials || []) if (Number.isInteger(t.threshold) && Number.isInteger(t.alarms)) {
+      const row = cls.get(t.threshold) || { threshold: t.threshold, alarms: t.alarms, falseAlarms: t.falseAlarms || 0, fit: !!t.fit, students: new Set() };
+      row.students.add(s.student.name); cls.set(t.threshold, row);
     }
   }
   const thresholds = [...thr.values()].map(r => ({ threshold: r.threshold, alarms: r.alarms, n: r.students.size, names: [...r.students] })).sort((a, b) => a.threshold - b.threshold);
+  const classroom = [...cls.values()].map(r => ({ threshold: r.threshold, alarms: r.alarms, falseAlarms: r.falseAlarms, fit: r.fit, n: r.students.size, names: [...r.students] })).sort((a, b) => a.threshold - b.threshold);
+  /* 按教参三条学习目标与两项重难点汇总：对应站的首次解释一致率、最终通过，以及20题考核该目标的首次/最近正确率（考核目标按顺序对应）。 */
+  const targets = [1, 2, 3].map(g => {
+    const rows = stageRows.filter(r => r.goal === g), ev = k => rows.reduce((n, r) => n + r.evidence[k], 0);
+    const q = goalRows[g - 1];
+    return { goal: g, label: R?.GOALS?.[g - 1] || ('目标' + g), foci: [...new Set(rows.map(r => r.focus).filter(Boolean))].map(f => R?.FOCI?.[f] || f), stations: rows.map(r => r.short),
+      submitted: ev('submitted'), explainFirst: ev('explainFirst'), transferFirst: ev('transferFirst'), passed: ev('passed'),
+      quizFirst: q && q.first.n ? Math.round(q.first.right / q.first.n * 100) : null, quizLatest: q && q.latest.n ? Math.round(q.latest.right / q.latest.n * 100) : null };
+  });
   const doneStars = students.flatMap(s => stages.filter(st => has(s, st.id)).map(st => sum(s, st.id).stars));
   return {
     classId: String(payload.classId), round: payload.round, at: payload.at, total, entered, status, stages: stageRows,
     starsAvg: doneStars.length ? Math.round(doneStars.reduce((n, v) => n + v, 0) / doneStars.length * 10) / 10 : null,
-    misconceptions, thresholds, garden,
+    misconceptions, thresholds, classroom, targets, garden: classroom,
     timeline: { start, end, minutes, last },
     quiz: { tested: tested.length, untested: total - tested.length, firstAvg: avg('first'), latestAvg: avg('latest'), goals: goalRows, hist }
   };

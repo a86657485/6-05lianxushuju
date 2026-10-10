@@ -23,14 +23,19 @@ test('学习三步：先预测，再实验，最后说清楚', () => {
 });
 
 test('实验指引：每一刻只指向一个具体控件，并附一句话提示', () => {
-  const checks = R.experimentChecks('flow', { trials: [] });
+  const checks0 = R.experimentChecks('flow', { trials: [] });
+  assert.equal(nextExperimentAction('flow', checks0).selector, '#schematic-parts', '教参：先画噪声监测系统示意图');
+  assert.equal(nextExperimentAction('flow', checks0, { picked: 'collect' }).selector, '#schematic-slots');
+  const sch = { kind: 'schematic', slots: { ...R.schematicAnswer } };
+  const checks = R.experimentChecks('flow', { trials: [sch] });
   assert.equal(nextExperimentAction('flow', checks).selector, '#src-quiet');
   assert.ok(nextExperimentAction('flow', checks).tip.length <= 16, '贴在控件旁的提示要短');
-  const half = R.experimentChecks('flow', { trials: [{ scene: 'quiet', db: 40, over: false }] });
+  const half = R.experimentChecks('flow', { trials: [sch, { scene: 'quiet', db: 40, over: false }] });
   assert.equal(nextExperimentAction('flow', half).selector, '#src-dance');
   assert.equal(nextExperimentAction('flow', half, { busy: true }).selector, null, '运行动画时只观察');
-  assert.equal(nextExperimentAction('wave', R.experimentChecks('wave', {}), { source: 'teacher', liveFresh: false }).selector, '#source-sim');
-  assert.equal(nextExperimentAction('wave', R.experimentChecks('wave', {}), { source: 'simulation', recording: true }).selector, '#knob');
+  assert.equal(nextExperimentAction('wave', R.experimentChecks('wave', {}), {}).selector, '#load-record', '直接打开监测器记录，把时间留给比较和读数');
+  assert.equal(nextExperimentAction('wave', R.experimentChecks('wave', {}), { recording: true }).selector, '#knob');
+  assert.equal(nextExperimentAction('life', R.experimentChecks('life', {}), {}).selector, '#curtain');
   const th0 = R.experimentChecks('threshold', {});
   assert.equal(nextExperimentAction('threshold', th0, { threshold: 55 }).selector, '#run-monitor', '阈值已是55就直接运行');
   assert.equal(nextExperimentAction('threshold', th0, { threshold: 60 }).selector, '#th-slider');
@@ -38,20 +43,20 @@ test('实验指引：每一刻只指向一个具体控件，并附一句话提�
   assert.equal(nextExperimentAction('threshold', th1, { threshold: 55 }).selector, '#th-slider', '要换一个明显不同的阈值');
   assert.equal(nextExperimentAction('threshold', th1, { threshold: 45 }).selector, '#run-monitor');
   const d0 = R.experimentChecks('design', {});
-  assert.equal(nextExperimentAction('design', d0, {}).selector, '#g-data', '先选数据（不预先替学生选好）');
-  assert.equal(nextExperimentAction('design', d0, { data: 'moisture' }).selector, '#g-dir');
-  assert.equal(nextExperimentAction('design', d0, { data: 'moisture', direction: 'below' }).selector, '#g-threshold');
-  assert.equal(nextExperimentAction('design', d0, { data: 'moisture', direction: 'below', thresholdSet: true }).selector, '#run-garden');
-  assert.equal(nextExperimentAction('design', d0, { data: 'moisture', direction: 'below', thresholdSet: true, alreadyRun: true }).selector, '#g-threshold', '同一方案不重复运行');
+  assert.equal(nextExperimentAction('design', d0, {}).selector, '#c-basis', '先选依据（标准/同学能接受的音量）设定阈值');
+  assert.equal(nextExperimentAction('design', d0, { thresholdSet: true }).selector, '#run-class');
+  assert.equal(nextExperimentAction('design', d0, { thresholdSet: true, alreadyRun: true }).selector, '#c-threshold', '同一阈值不重复运行');
   assert.equal(nextExperimentAction('design', R.experimentChecks('design', R.examples.design)).selector, '#go-explain');
 });
 
 test('说清楚：对照预测→自己的证据→概念卡→新情境；改标红；通过后写句块', () => {
   assert.deepEqual(cardKeys('flow', R), ['compare', 'evidence', 'input', 'compute', 'output', 'transfer']);
-  assert.equal(cardKeys('life', R).length, 2 + Object.keys(R.lifeCards).length + 1, '对照+证据+数据卡+迁移');
-  assert.deepEqual(cardKeys('threshold', R).slice(3, 7), ['case:kettle', 'case:fridge', 'case:heart', 'case:highway']);
+  assert.deepEqual(cardKeys('wave', R).slice(0, 3), ['collect', 'compare', 'evidence'], '教材活动1：先问采集哪些数据，再对照第一感觉');
+  assert.equal(cardKeys('life', R).length, 2 + 2 + Object.keys(R.lifeCards).length + 1, '对照+证据+吹纸片+仪表+数据卡+迁移');
+  assert.deepEqual(cardKeys('threshold', R).slice(2, 8), ['role', 'where', 'case:kettle', 'case:fridge', 'case:heart', 'case:highway'], '难点：先问阈值的作用');
+  assert.deepEqual(cardKeys('design', R), ['compare', 'evidence', 'role', 'raise', 'transfer']);
   const empty = { ...R.examples.wave, explain: {}, transfer: '' };
-  assert.equal(explainTarget('wave', empty, R).card, 'compare', '先对照自己的预测');
+  assert.equal(explainTarget('wave', empty, R).card, 'collect', '先回答需要采集的数据');
   const rec = { ...R.examples.wave, explain: { ...R.examples.wave.explain, reason: 'pretty' } };
   assert.deepEqual(wrongCards('wave', rec, R), ['reason']);
   assert.deepEqual(R.assess('wave', rec).tags, ['pretty-reason'], '误解标签');
@@ -63,21 +68,21 @@ test('说清楚：对照预测→自己的证据→概念卡→新情境；改�
   assert.deepEqual(wrongCards('life', life, R), ['lamp']); assert.deepEqual(R.assess('life', life).tags, ['state-continuous']);
   const th = { ...R.examples.threshold, explain: { ...R.examples.threshold.explain, 'case:fridge': '6℃' } };
   assert.deepEqual(wrongCards('threshold', th, R), ['case:fridge']); assert.deepEqual(R.assess('threshold', th).tags, ['threshold-is-data']);
-  const design = { ...R.examples.design, design: { data: 'moisture', direction: 'below', threshold: 60 } };
+  const design = { ...R.examples.design, design: { threshold: 55 } };
   assert.equal(explainTarget('design', design, R, { reviewed: true }).selector, '#back-to-experiment');
   const passed = { ...R.examples.flow, reflect: {} };
   assert.equal(explainTarget('flow', passed, R, { passed: true }).selector, '#reflect-saw');
   assert.equal(explainTarget('flow', { ...passed, reflect: { saw: 'ipo', so: 'all' }, reflectDone: true }, R, { passed: true }).selector, '#next');
 });
 
-test('证据星：第一次就对才得后两颗；用了“具体帮助”不计；靠重试完成只得1颗', () => {
+test('证据星：★★ 可由二刷解释达标挣到；★★★ 仍须首次独立且解释+迁移都对', () => {
   const ex = R.examples.flow, wrong = { ...ex, explain: { ...ex.explain, compute: 'raw' } };
   const st = (first, last, extra = {}) => ({ first, firstSubmitted: first, lastSubmitted: last, latest: last, attempts: first === last ? 1 : 2, ...extra });
   assert.equal(R.stageSummary('flow', st(ex, ex), true).stars, 3);
-  assert.equal(R.stageSummary('flow', st(wrong, ex), true).stars, 1, '解释首次错：迁移首次对也不单独给星（三选一可能是猜的）');
+  assert.equal(R.stageSummary('flow', st(wrong, ex), true).stars, 2, '解释首次错、后来修订对：二刷可挣到第2颗星（出门门禁）');
   assert.equal(R.stageSummary('flow', st({ ...ex, transfer: 'devices' }, ex), true).stars, 2, '解释首次全对、迁移首次错');
-  assert.equal(R.stageSummary('flow', st({ ...wrong, transfer: 'devices' }, ex), true).stars, 1);
-  assert.equal(R.stageSummary('flow', st({ ...ex, conceptHintLevel: 3 }, { ...ex, conceptHintLevel: 3 }), true).stars, 1, '第3级具体帮助');
+  assert.equal(R.stageSummary('flow', st({ ...wrong, transfer: 'devices' }, ex), true).stars, 2, '后来解释对即可 ★★');
+  assert.equal(R.stageSummary('flow', st({ ...ex, conceptHintLevel: 3 }, { ...ex, conceptHintLevel: 3 }), true).stars, 2, '用了第3级帮助：仍可 ★★ 出门，但不给第3颗');
   assert.equal(R.stageSummary('flow', st(ex, ex), false).stars, 0, '未通过不给星');
   const m = R.stageSummary('flow', st(wrong, ex), true);
   assert.equal(m.attempts, 2); assert.deepEqual(m.tagsFirst, ['stage-mix']); assert.equal(m.explainFirst, false); assert.equal(m.transferFirst, true);
@@ -124,7 +129,7 @@ test('大屏证据口径：首次/最终、误解可点开、预测转变、提�
   const st = summarizeClass({ classId: '601', round: 'r1', at: new Date(now).toISOString(), students }, R.stages, quiz.groups, R, now);
   const f = st.stages[0];
   assert.deepEqual(f.evidence, { submitted: 3, explainFirst: 1, transferFirst: 1, passed: 2, attemptsAvg: 2 });
-  assert.deepEqual(f.stars, { one: 1, two: 0, three: 1 }, '甲首次错→1星，丙首次全对→3星');
+  assert.deepEqual(f.stars, { one: 0, two: 1, three: 1 }, '甲首次错后来对→2星，丙首次全对→3星');
   assert.deepEqual(f.prediction, { n: 3, correct: 1, revised: 1, pending: 1 });
   assert.deepEqual(f.hints.levels, [1, 2, 0, 0]);
   const dev = st.misconceptions.find(m => m.tag === 'device-as-data');
@@ -179,4 +184,50 @@ test('奖励小游戏入口与教师面板：79锁定显示最好成绩、80进�
   const s = { student: { name: '乙' }, gameGate: { unlocked: true }, game: { plays: 2, total: 300, stars: 5, discoveries: { school: { firstCorrect: true } }, runs: [{ level: 'school', controls: { a: { last: 40 } } }, { level: 'sample', controls: { k: { last: 4 } } }] } };
   const html = gameChart([s]);
   assert.ok(html.includes('解锁 1/1') && html.includes('首选正确 1/1') && html.includes('乙'));
+});
+
+test('大屏按三条学习目标与两项重难点汇总；第5站显示教室阈值分布', () => {
+  const ex = R.examples;
+  const recOf = id => ({ first: ex[id], latest: ex[id], firstSubmitted: ex[id], lastSubmitted: { ...ex[id], assessment: { pass: true } }, history: [] });
+  const records = Object.fromEntries(R.stageIds.map(id => [id, recOf(id)]));
+  const s1 = fakeStudent('a', '601', { entered: true, awards: R.stageIds, records, quiz: [{ score: 90, byGoal: { [quiz.groups[2]]: { right: 6, total: 7 } } }] });
+  const st = summarizeClass({ classId: '601', round: 'r1', at: '2026-10-10T00:00:00Z', students: [s1] }, R.stages, quiz.groups, R, Date.parse('2026-10-10T00:00:00Z'));
+  assert.deepEqual(st.targets.map(t => t.stations.length), [1, 2, 2]);
+  assert.deepEqual(st.targets[2].foci, ['难点：阈值的含义与作用']);
+  assert.equal(st.targets[2].quizFirst, 86);
+  assert.ok(st.classroom.some(c => c.threshold === R.ACCEPT && c.fit));
+  const html = renderClassCharts(st, { R });
+  assert.match(html.target, /目标3/); assert.match(html.target, /难点/); assert.match(html.progress, /目标2·重点/);
+  assert.match(html.garden, /教室噪声监测器/);
+});
+
+test('RPG 地图地点顺序与 stageIds 一致，末尾是 quiz', async () => {
+  const rpg = await import('../public/rpg.mjs');
+  const ids = Object.keys(rpg.places);
+  assert.deepEqual(ids.slice(0, -1), R.stageIds);
+  assert.equal(ids.at(-1), 'quiz');
+  for (const id of R.stageIds) {
+    assert.ok(rpg.places[id].tx >= 0 && rpg.places[id].ty >= 0, id + ' 有瓦片坐标');
+    assert.ok(rpg.places[id].name, id + ' 有名称');
+    assert.ok(rpg.places[id].npc, id + ' 有 NPC');
+  }
+  assert.equal(typeof rpg.mountRpg, 'function');
+  assert.equal(typeof rpg.guideSvg, 'function');
+});
+
+
+test('两星出门门禁：未满两星不可视为通关解锁；二刷可挣满两星；retryGuidance 有文案', () => {
+  const ex = R.examples.flow;
+  const wrong = { ...ex, explain: { ...ex.explain, evidence: 'device' } };
+  const st = (first, last, extra = {}) => ({ first, firstSubmitted: first, lastSubmitted: last, latest: last, attempts: first === last ? 1 : 2, ...extra });
+  assert.equal(R.stageSummary('flow', st(wrong, wrong), false).stars, 0);
+  assert.ok(R.stageSummary('flow', st(wrong, ex), true).stars >= 2, '二刷解释对 → ≥2');
+  assert.equal(R.stageSummary('flow', st(ex, ex), true).stars, 3);
+  const g = R.retryGuidance('flow', { ...wrong, _tags: ['device-as-data'] });
+  assert.ok(g.title && g.lines.length >= 1);
+  assert.match(g.lines.join(''), /装置|数据|示意图/);
+  for (const id of R.stageIds) {
+    const tip = R.retryGuidance(id, {});
+    assert.ok(tip.lines[0], id + ' 有默认引导');
+  }
 });

@@ -13,7 +13,7 @@ export function goalSummary(feedback) {
   return out;
 }
 /** 教师测试卷：按三条学习目标抽题；默认 7/7/6 共20题。 */
-export function pickLocal(questions, perGoal = [7, 7, 6]) {
+export function pickLocal(questions, perGoal = [6, 7, 7]) {
   const goals = [...new Set(questions.map(q => q.goal))];
   const counts = Array.isArray(perGoal) ? perGoal : goals.map(() => perGoal);
   return goals.flatMap((g, i) => questions.filter(q => q.goal === g).map(q => ({ q, n: Math.random() })).sort((a, b) => a.n - b.n).slice(0, counts[i] ?? counts[0]).map(v => v.q));

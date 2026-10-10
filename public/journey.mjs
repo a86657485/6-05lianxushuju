@@ -27,8 +27,11 @@ export function learningProgress(stage, record, rules) {
 export function nextExperimentAction(stage, checks, o = {}) {
   const missing = checks.find(c => !c.complete);
   const act = (selector, tip, instruction) => ({ selector, tip, instruction: instruction || tip });
-  if (!missing) return act('#go-explain', '实验记好了，去说清楚', '两项实验证据都已自动保存。点亮着的“说清楚”按钮。');
+  if (!missing) return act('#go-explain', '实验记好了，去说清楚', '实验证据都已自动保存。点亮着的“说清楚”按钮。');
   if (stage === 'flow') {
+    if (missing.id === 'schematic') return o.picked
+      ? act('#schematic-slots', '点它该放的空框', '你选了一个装置。声音先进入哪个装置？再交给谁？最后由谁输出？点对应的空框。')
+      : act('#schematic-parts', '先点一个装置', '回想上节课的输入—计算—输出：把三个装置放进噪声监测系统示意图。');
     if (o.busy) return act(null, '', '监测器正在工作：看声音数据怎样从输入流到输出。');
     return missing.id === 'under'
       ? act('#src-quiet', '先点“夜深人静”', '让广场安静下来，看监测器的三个环节里出现了什么。')
@@ -36,19 +39,14 @@ export function nextExperimentAction(stage, checks, o = {}) {
   }
   if (stage === 'wave') {
     if (missing.id === 'trace') {
-      if (o.source === 'teacher' && !o.liveFresh) return act('#source-sim', '改用“模拟推杆”', '老师还没开启现场监测。可以等一等，或改用模拟推杆。');
-      if (o.recording) return o.source === 'simulation'
-        ? act('#knob', '左右拖动，让声音忽大忽小', '正在记录：慢慢左右拖动推杆，曲线会跟着起伏。')
-        : act(null, '', '正在记录：请附近同学说话或轻拍手，让声音有大有小。');
-      if (o.lastSpanSmall) return act('#record', '再录一次，这次让声音大起大落', '刚才声音几乎没有变化（起伏不足15）。再录一次。');
-      return act('#record', '点这里开始录10秒', '点红色录音键，然后在10秒里拖动推杆，让声音时大时小。');
+      if (o.recording) return act('#knob', '左右拖动，让声音忽大忽小', '正在记录：慢慢左右拖动推杆，曲线会跟着起伏。');
+      if (o.lastSpanSmall) return act('#record', '再录一次，这次让声音大起大落', '刚才声音几乎没有变化（起伏不足15）。再录一次，或点“打开监测器记录”。');
+      return act('#load-record', '打开监测器的一段记录', '点“打开监测器记录”：广场监测器10秒里的声音，会同时画成波形和散点。');
     }
     return act('#wave-chart', '在两个圆点之间点一下', '圆点是每2秒记下的读数。在两个圆点中间的曲线上点一下，看那一刻有没有数值。');
   }
   if (stage === 'life') {
-    if (missing.id === 'curtain') return act('#curtain', '慢慢拖动，拉上窗帘', '慢慢拖动窗帘把手，看光照表和曲线怎样变化（至少经过8个不同读数）。');
-    if (o.kettleRunning) return act('#kettle-read', '趁没烧开，读一次水温', '水温正在上升。趁它还没到100 ℃，读出此刻的水温。');
-    return act('#kettle-start', '点“开始烧水”', '打开电热水壶，看温度计和曲线怎样变化。');
+    return act('#curtain', '慢慢拖动，拉上窗帘', '慢慢拖动窗帘滑块，看光照表和曲线怎样变化（至少经过8个不同读数）。');
   }
   if (stage === 'threshold') {
     if (o.running) return act(null, '', '正在回放这一晚：注意报警灯什么时候亮。');
@@ -60,14 +58,12 @@ export function nextExperimentAction(stage, checks, o = {}) {
       : act('#th-slider', '把红线调到 45 再试', '把红线拖到45 dB（或另一个与55相差至少5 dB的位置），再运行比较。');
   }
   if (stage === 'design') {
-    if (o.running) return act(null, '', '正在运行4天：看湿度曲线有没有跑出绿色带。');
-    if (!o.data) return act('#g-data', '①选：系统采集什么数据', '先决定传感器测什么。三种数据都可以试，结果会告诉你哪种合适。');
-    if (!o.direction) return act('#g-dir', '②选：什么时候开水泵', '数据“降到”阈值时浇水，还是“升到”阈值时浇水？');
-    if (!o.thresholdSet) return act('#g-threshold', '③拖动设定阈值', '拖动滑块，设定开水泵的阈值。');
+    if (o.running) return act(null, '', '正在回放课间10分钟：看提示出现在正常聊天时，还是喧哗时。');
+    if (!o.thresholdSet) return act('#c-basis', '选一个依据，设定阈值', '参考左边的噪声标准或同学投票，点按钮把阈值设成那个数，也可以拖滑块。');
     if (o.alreadyRun) return missing.id === 'fit'
-      ? act('#g-threshold', '调整阈值（或数据）再试', '这个方案已经运行过。看看曲线哪里跑出了绿色带，改一改再运行。')
-      : act('#g-threshold', '换一种设置，再比较一次', '已经找到合适的方案。再换一种设置运行，比较两次结果。');
-    return act('#run-garden', '点“运行4天”检验方案', '方案设好了，运行4天的仿真看看湿度能不能保持在30%—70%。');
+      ? act('#c-threshold', '调整阈值再试', '这个阈值已经运行过。看提示记录：哪些提示出现在正常聊天时？改一改再运行。')
+      : act('#c-threshold', '换一个阈值，再比较一次', '已经找到合适的阈值。再换一个阈值运行，比较两次的提示。');
+    return act('#run-class', '点“运行课间10分钟”', '阈值设好了。回放课间10分钟的声音，看监测器什么时候提示。');
   }
   return act(null, '', '');
 }

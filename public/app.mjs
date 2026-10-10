@@ -1,18 +1,19 @@
 /*
- * 学生端（沉浸版）：班级姓名登录 → 夜晚小区地图 → 五个地点（想一想 → 做实验 → 说清楚）→ 巡查报告站（20题考核）。
+ * 学生端（RPG 闯关版）：班级姓名登录 → 俯视校园地图走动找 NPC → 对话进站（想一想 → 做一做 → 说清楚）→ 出门条 20 题考核。
+ * 地图只负责「走到 → 对话 → 进关」；进站后须满 ★★ 才能回地图；二刷起给教学引导。关卡内证据仍用 activities / cards / experiments / rules。
  * 任何时刻只突出一个主要操作（focus.mjs），判定、积分与记录沿用 rules.js / 课堂服务。
  */
 import { ClassroomSync, api, escape } from './sync.mjs?v=1';
-import { activities, takeaways, places } from './activities.mjs?v=3';
-import { experimentClasses } from './experiments.mjs?v=3';
-import { learningProgress, nextExperimentAction, explainTarget, explainKeys, cardKeys, cardAnswered } from './journey.mjs?v=3';
-import { cardSpec, dataLines, conceptHint, ruledKey } from './cards.mjs?v=3';
-import { QuizView, gameEntry } from './quiz.mjs?v=2';
+import { activities, takeaways } from './activities.mjs?v=6';
+import { experimentClasses } from './experiments.mjs?v=6';
+import { learningProgress, nextExperimentAction, explainTarget, explainKeys, cardKeys, cardAnswered } from './journey.mjs?v=6';
+import { cardSpec, dataLines, conceptHint, ruledKey } from './cards.mjs?v=6';
+import { QuizView, gameEntry } from './quiz.mjs?v=6';
 import { Microphone } from './microphone.mjs?v=1';
-import { renderStageReference, renderExamReference } from './teacher-guide.mjs?v=3';
-import { mapBackground, mapPath, placeIcon, sprite, pickCharacter, xiaodiSvg, CHARACTERS } from './world.mjs?v=2';
-import { setFocus, place as placeCoach, spotlight } from './focus.mjs?v=2';
-import { sound } from './sfx.mjs?v=2';
+import { renderStageReference, renderExamReference } from './teacher-guide.mjs?v=6';
+import { mapBackground, paintLoginPreview, mountRpg, places, sprite, pickCharacter, xiaodiSvg, guideSvg, CHARACTERS } from './world.mjs?v=6';
+import { setFocus, place as placeCoach, spotlight } from './focus.mjs?v=6';
+import { sound } from './sfx.mjs?v=6';
 
 const $ = id => document.getElementById(id);
 const R = window.LessonRules;
@@ -20,10 +21,10 @@ const mode = location.pathname === '/test' ? 'test' : location.pathname === '/de
 const local = mode !== 'student';
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ORDER = [...R.stageIds, 'quiz'];
-const STEPS = [['predict', '想一想'], ['experiment', '做实验'], ['explain', '说清楚']];
+const STEPS = [['predict', '想一想'], ['experiment', '做一做'], ['explain', '说清楚']];
 let state = null, drafts = {}, stage = 'flow', learningStep = 'predict', experiment = null, screen = 'login';
 let opLevel = {}, revisit = {}, reviewed = {}, quiz = null, live = null, liveAt = 0, liveTimer = null, mic = null, micLevel = null;
-let character = 'maleAdventurer', avatarAt = 'flow', walking = false, shownCard = null, sayText = '', sayTone = '', hintText = '', mapNote = '';
+let character = 'maleAdventurer', avatarAt = 'flow', rpg = null, shownCard = null, sayText = '', sayTone = '', hintText = '', mapNote = '';
 let login = { classId: '', id: '', manual: false };
 
 const sync = new ClassroomSync((message, pending) => { $('sync-status').textContent = message; $('sync-status').className = 'hud-sync' + (pending ? ' warning' : ''); },
@@ -49,15 +50,20 @@ function persist(send = true) {
 function summaryOf(st) {
   const d = drafts[st] || {}, srv = !local ? state?.records?.[st]?.summary : null;
   if (srv && !d.firstCheck) return srv;
-  return R.stageSummary(st, { first: d.prediction ? { prediction: d.prediction } : null, firstSubmitted: d.firstCheck || null, lastSubmitted: d.submitted ? d : null, latest: d, attempts: d.attempts || 0 }, doneStage(st));
+  return R.stageSummary(st, { first: d.prediction ? { prediction: d.prediction } : null, firstSubmitted: d.firstCheck || null, lastSubmitted: d.submitted ? d : null, latest: d, attempts: d.attempts || 0 }, stageAwarded(st));
 }
-const starsOf = st => doneStage(st) ? Math.max(1, summaryOf(st).stars) : 0;
-const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+const starText = n => '★'.repeat(Math.max(0, n)) + '☆'.repeat(Math.max(0, 3 - n));
 const awarded = st => (state?.awards || []).some(a => a.stage === st);
 const passedNow = st => { const d = drafts[st]; return !!d && d.submitted === true && R.assess(st, d).pass; };
-const doneStage = st => awarded(st) || passedNow(st);
+const stageAwarded = st => awarded(st) || passedNow(st);
+const starsOf = st => summaryOf(st).stars || 0;
+/** 主线出门门禁：满两星才能回地图并解锁下一站；教师测试可自由进出。 */
+const canExitStage = st => mode === 'test' || starsOf(st) >= 2;
+const doneStage = st => canExitStage(st);
 const unlocked = st => { if (st === 'quiz') return true; const i = R.stageIds.indexOf(st); return mode === 'test' || i === 0 || doneStage(R.stageIds[i - 1]); };
 const currentTarget = () => R.stageIds.find(st => !doneStage(st) && unlocked(st)) || 'quiz';
+/** 二刷起给教学引导（已提交过至少一次）。 */
+const guidanceOn = (st = stage) => mode !== 'test' && (draft(st).attempts || 0) >= 1;
 
 function show(id) {
   screen = id;
@@ -66,6 +72,7 @@ function show(id) {
   $('menu').hidden = true;
   if (id !== 'quiz') quiz?.close();
   if (id !== 'level') { experiment?.destroy(); experiment = null; }
+  if (id !== 'map' && rpg) { rpg.destroy(); rpg = null; }
   $('celebrate').hidden = true;
   renderHud(); refreshGuide();
 }
@@ -74,6 +81,7 @@ function show(id) {
 let roster = [];
 function loginSetup() {
   $('login-bg').innerHTML = mapBackground();
+  paintLoginPreview($('login-rpg-canvas')).catch(() => {});
   $('class-tiles').innerHTML = [601, 602, 603, 604, 605, 606].map(c => `<button type="button" class="tile" data-class="${c}" aria-pressed="false">${c}<small>班</small></button>`).join('');
   $('class-tiles').querySelectorAll('[data-class]').forEach(b => b.onclick = () => { sound.play('tap'); pickClass(b.dataset.class); });
 }
@@ -156,7 +164,7 @@ function enter(s) {
   const t = currentTarget(), i = ORDER.indexOf(t);
   avatarAt = i > 0 ? ORDER[i - 1] : 'flow';
   if (mode === 'demo') toast('演示模式：可以体验全部流程，记录只留在这个页面。');
-  showMap(t === 'flow' && !draft('flow').prediction ? '欢迎你，巡查员！夜里小区有人反映太吵。我们去广场看看那台噪声监测器。' : '');
+  showMap(t === 'flow' && !draft('flow').prediction ? '欢迎你，巡查员！先走到「监测站门口」的老师旁边，按空格或点「对话」开始第1站。' : '');
 }
 
 /* ---------------- HUD ---------------- */
@@ -171,7 +179,7 @@ function renderHud() {
 }
 $('sound').onclick = () => { sound.toggle(); sound.play('tap'); renderHud(); };
 $('menu-btn').onclick = () => { $('menu').hidden = !$('menu').hidden; $('menu-btn').setAttribute('aria-expanded', String(!$('menu').hidden)); renderHud(); };
-$('hud-avatar').onclick = () => { const keys = Object.keys(CHARACTERS); character = keys[(keys.indexOf(character) + 1) % keys.length]; try { localStorage.setItem('lesson5-character', character); } catch {} renderHud(); if (screen === 'map') renderMap(); if (screen === 'level') pose('idle'); };
+$('hud-avatar').onclick = () => { const keys = Object.keys(CHARACTERS); character = keys[(keys.indexOf(character) + 1) % keys.length]; try { localStorage.setItem('lesson5-character', character); } catch {} renderHud(); if (screen === 'map') { if (rpg) rpg.setCharacter(character); else renderMap(); } if (screen === 'level') pose('idle'); };
 $('help').onclick = () => {
   sound.play('hint');
   if (screen === 'level') {
@@ -187,44 +195,58 @@ $('help').onclick = () => {
       hintText = `操作提示 ${opLevel[stage]}/3：${activities[stage].opHints[opLevel[stage] - 1]}`;
     } else hintText = learningStep === 'predict' ? '凭你现在的想法选一个，没有对错；实验会帮你检验它。' : '看看亮着的按钮。';
     renderBubble();
-  } else if (screen === 'map') { mapNote = '亮着光圈、有小手指着的地点，就是下一站。点它出发！'; renderMap(); }
+  } else if (screen === 'map') { mapNote = '黄色箭头指着的人，就是下一站。走过去按空格或点「对话」。'; renderMap(); }
   spotlight();
 };
 document.addEventListener('pointerdown', e => { if (!$('spot').hidden && !e.target.closest('#help')) $('spot').hidden = true; if (!$('menu').hidden && !e.target.closest('#menu,#menu-btn')) $('menu').hidden = true; });
 
 /* ---------------- 小区地图 ---------------- */
-function showMap(note = '') { mapNote = note; show('map'); renderMap(); }
-function renderMap() {
+function showMap(note = '') {
+  if (screen === 'level' && !canExitStage(stage)) {
+    toast(`本站还要满两颗星才能回地图（现在 ${starText(starsOf(stage))}）。改一改再说清楚，或点「本站重新做」。`);
+    renderRetryGuide();
+    return;
+  }
+  mapNote = note; show('map'); renderMap();
+}
+function placeMeta(id) {
+  const done = id === 'quiz' ? (state.quizAttempts || []).length > 0 : doneStage(id);
+  const open = unlocked(id);
+  const opt = false;
+  const badge = done ? '✓' : id === 'quiz' ? '测' : String(R.stageIds.indexOf(id) + 1);
+  return { open, done, badge, optional: opt };
+}
+async function renderMap() {
   if (screen !== 'map') return;
   const target = currentTarget();
-  const placeHtml = ORDER.map((k, i) => {
-    const p = places[k], done = k === 'quiz' ? (state.quizAttempts || []).length > 0 : doneStage(k), open = unlocked(k);
-    return `<button type="button" class="place ${done ? 'done' : ''} ${open ? '' : 'locked'} ${k === target ? 'next' : ''}" id="place-${k}" data-place="${k}" style="--x:${p.x};--y:${p.y}" aria-label="${k === 'quiz' ? '' : '第' + (i + 1) + '站 '}${p.name}${done ? '（已完成）' : open ? '' : '（未解锁）'}">
-      <span class="place-icon">${placeIcon(k)}<i class="place-badge">${done ? (k === 'quiz' ? '✓' : starsOf(k) + '★') : open ? (k === 'quiz' ? '📋' : i + 1) : '🔒'}</i></span><span class="place-name">${p.name}</span></button>`;
-  }).join('');
-  const a = places[avatarAt] || places.flow;
-  $('map-world').innerHTML = mapBackground() + mapPath(ORDER) + placeHtml + `<img id="map-avatar" class="map-avatar" alt="" src="${sprite(character, 'idle')}" style="--x:${a.x};--y:${a.y}">`;
-  $('map-world').querySelectorAll('[data-place]').forEach(b => b.onclick = () => goPlace(b.dataset.place));
-  $('map-xiaodi').innerHTML = xiaodiSvg(40);
-  for (let f = 0; f < 8; f++) new Image().src = sprite(character, 'walk' + f);
+  const world = $('map-world');
+  $('map-xiaodi').innerHTML = guideSvg(56);
   const t = places[target];
-  $('map-say').innerHTML = escape(mapNote || (target === 'quiz' ? (R.stageIds.every(doneStage) ? '五站全部完成！去“巡查报告站”完成20题考核。' : '去巡查报告站。') : `下一站：${t.name}。${t.line}`));
-  refreshGuide();
+  $('map-say').textContent = mapNote || (target === 'quiz'
+    ? (R.stageIds.every(doneStage) ? '五站全部完成！走到校门「出门条」，按空格或点「对话」做20题。' : '走到校门「出门条」做20题考核。')
+    : `走到「${t.name}」：${t.label || t.line}。方向键或摇杆移动，靠近后按空格或点「对话」。`);
+  if (rpg) { rpg.destroy(); rpg = null; }
+  rpg = await mountRpg(world, {
+    character,
+    spawnPlace: avatarAt && places[avatarAt] ? avatarAt : 'flow',
+    getMeta: placeMeta,
+    nextTarget: () => currentTarget(),
+    onInteract: id => enterPlace(id),
+  });
+  const talk = world.querySelector('#rpg-talk');
+  if (talk) setFocus(talk, `去${places[target].name}`);
+  else refreshGuide();
 }
-function goPlace(k) {
-  if (walking) return;
-  if (!unlocked(k)) { sound.play('bad'); const i = R.stageIds.indexOf(k); mapNote = `先完成第${i}站“${places[R.stageIds[i - 1]].name}”，这里才会亮起来。`; renderMap(); return; }
+function enterPlace(k) {
+  if (!unlocked(k)) { sound.play('bad'); toast(k === 'quiz' ? '请先完成前面各站' : `请先完成「${places[R.stageIds[R.stageIds.indexOf(k) - 1]]?.name || '上一站'}」`); return; }
   sound.play('tap');
-  const go = () => k === 'quiz' ? showEnd() : showStage(k);
-  const av = $('map-avatar'), to = places[k], from = places[avatarAt] || places.flow;
   avatarAt = k;
-  if (reduced() || !av || (to.x === from.x && to.y === from.y)) return go();
-  walking = true; setFocus(null);
-  av.classList.toggle('flip', to.x < from.x);
-  let f = 0; const frames = setInterval(() => { av.src = sprite(character, 'walk' + (f++ % 8)); }, 70);
-  av.style.setProperty('--x', to.x); av.style.setProperty('--y', to.y);
-  setTimeout(() => { clearInterval(frames); walking = false; go(); }, 750);
+  if (rpg) { try { avatarAt = rpg.getAvatarPlace() || k; } catch {} }
+  if (k === 'quiz') showEnd();
+  else showStage(k);
 }
+window.__enterPlace = id => enterPlace(id);
+window.__places = () => places;
 
 /* ---------------- 实验上下文：实验通过它写记录 ---------------- */
 const ctx = {
@@ -308,7 +330,16 @@ function renderLevelChrome(popIndex = -1) {
   $('think-layer').hidden = learningStep !== 'predict';
   $('explain-layer').hidden = learningStep !== 'explain';
   $('level-main').classList.toggle('dimmed', learningStep !== 'experiment');
-  renderBubble(); renderHud();
+  const exitOk = canExitStage(stage);
+  const back = $('to-map');
+  if (back) {
+    back.disabled = !exitOk;
+    back.hidden = false;
+    back.textContent = exitOk ? '← 地图' : '← 地图（满 ★★ 可回）';
+    back.title = exitOk ? '返回校园地图' : '本站满两颗星后才能回地图';
+    back.classList.toggle('locked-exit', !exitOk);
+  }
+  renderBubble(); renderHud(); renderRetryGuide();
 }
 function renderBubble() {
   if (screen !== 'level') return;
@@ -330,12 +361,12 @@ function renderThink() {
   $('think-layer').innerHTML = `<div class="think-card"><div class="story"><img src="${sprite(character, 'think')}" alt="" width="54" height="72"><p>${escape(a.story)}</p></div>
     <p class="kicker">想一想</p><h2>${escape(a.question)}</h2>
     <div class="card-options think-options">${a.predict.map(([v, label]) => `<button type="button" class="opt" data-predict="${v}" aria-pressed="${d.prediction === v}" ${d.prediction && d.prediction !== v ? 'disabled' : ''}>${escape(label)}</button>`).join('')}</div>
-    ${d.prediction ? '<p class="note">首次预测已保留。猜错没关系，实验会告诉你。</p><button type="button" id="think-back" class="go-btn">去做实验 →</button>' : '<p class="note">凭你现在的想法选一个，不扣分。</p>'}</div>`;
+    ${d.prediction ? '<p class="note">首次预测已保留。猜错没关系，做一做就知道。</p><button type="button" id="think-back" class="go-btn">去做一做 →</button>' : '<p class="note">凭你现在的想法选一个，不扣分。</p>'}</div>`;
   $('think-layer').querySelectorAll('[data-predict]').forEach(b => b.onclick = () => {
     const dd = draft(); if (dd.prediction) return;
     dd.prediction = b.dataset.predict; persist(); sound.play('tap');
     b.classList.add('chosen'); $('think-layer').querySelectorAll('[data-predict]').forEach(x => { if (x !== b) x.disabled = true; });
-    setFocus(null); sayText = '想法记下了！去做实验检验它。'; sayTone = 'good'; renderBubble();
+    setFocus(null); sayText = '想法记下了！去做一做，检验它。'; sayTone = 'good'; renderBubble();
     setTimeout(() => { if (screen === 'level' && learningStep === 'predict') setStep('experiment'); }, reduced() ? 0 : 800);
   });
   const back = $('think-back'); if (back) back.onclick = () => setStep('experiment');
@@ -374,8 +405,8 @@ function summaryHtml() {
   const d = draft(), passed = passedNow(stage), m = R.messages[stage];
   const designBad = reviewed[stage] && stage === 'design' && !R.assess(stage, { ...d, submitted: true }).parts.design;
   if (passed && !d.reflectDone) return reflectHtml();
-  if (passed) { const n = starsOf(stage); return `<div class="qcard summary" data-card="summary"><p class="kicker">本站已通过 · 证据星 <span class="stars">${starText(n)}</span></p><h2>${escape(takeaways[stage])}</h2><button type="button" id="next" class="go-btn">回到地图 →</button></div>`; }
-  if (designBad) return `<div class="qcard summary needs-revision" data-card="summary"><p class="kicker">方案需要调整</p><h2>${escape(m.design)}</h2><button type="button" id="back-to-experiment" class="go-btn">回到种植园改方案</button></div>`;
+  if (passed) { const n = starsOf(stage); const ok = canExitStage(stage); return `<div class="qcard summary" data-card="summary"><p class="kicker">本站已通过 · 证据星 <span class="stars">${starText(n)}</span></p><h2>${escape(takeaways[stage])}</h2>${ok ? '<button type="button" id="next" class="go-btn">回到地图 →</button>' : '<button type="button" id="next-retry" class="go-btn">再改一改，争取 ★★ →</button><p class="note">满两颗星才能回地图。</p>'}</div>`; }
+  if (designBad) return `<div class="qcard summary needs-revision" data-card="summary"><p class="kicker">方案需要调整</p><h2>${escape(m.design)}</h2><button type="button" id="back-to-experiment" class="go-btn">回到监测器调整阈值</button></div>`;
   return `<div class="qcard summary" data-card="summary"><p class="kicker">全部选好了</p><h2>检验你的解释和实验证据是否一致</h2><button type="button" id="check" class="go-btn">检验我的解释</button><p class="note">第一次检验的结果会记成“首次表现”；错了可以看反馈再改，不扣积分。</p></div>`;
 }
 function renderExplain() {
@@ -384,7 +415,7 @@ function renderExplain() {
   const passed = passedNow(stage);
   const card = passed ? 'summary' : (shownCard || target.card);
   let design = '';
-  if (stage === 'design') { const ds = d.design, info = ds && R.designData[ds.data]; design = `<p class="my-design">我的方案：${ds ? `采集${info.label}，${ds.direction === 'below' ? '降到' : '升到'}${ds.threshold}${info.unit}时开水泵` : '还没有运行'}</p>`; }
+  if (stage === 'design') { const ds = d.design; design = `<p class="my-design">我定的阈值：${ds && Number.isInteger(ds.threshold) ? `课间音量超过 ${ds.threshold} dB 时提示` : '还没有运行'}</p>`; }
   const dots = passed ? '' : [...keys, 'summary'].map((k, i) => `<button type="button" class="dot-btn ${k === card ? 'on' : ''} ${k !== 'summary' && cardAnswered(stage, d, k) ? 'filled' : ''} ${(revisit[stage] || []).includes(k) && reviewed[stage] ? 'wrong' : ''}" data-goto="${escape(k)}" aria-label="${k === 'summary' ? '检验' : '第' + (i + 1) + '张'}">${k === 'summary' ? '✓' : i + 1}</button>`).join('');
   $('explain-layer').innerHTML = `<div class="explain-wrap">${design}<div class="card-dots">${dots}</div>${card === 'summary' || card === 'reflect' ? summaryHtml() : cardHtml(card)}
     <div class="card-nav"><button type="button" id="explain-back" class="ghost-btn">回去看实验</button>${!passed && card !== target.card && target.card ? '<button type="button" id="card-resume" class="ghost-btn">继续 →</button>' : ''}</div></div>`;
@@ -397,6 +428,7 @@ function renderExplain() {
   const resume = $('card-resume'); if (resume) resume.onclick = () => { shownCard = null; renderExplain(); refreshGuide(); };
   const check = $('check'); if (check) check.onclick = submit;
   const next = $('next'); if (next) next.onclick = () => showMap();
+  const nextRetry = $('next-retry'); if (nextRetry) nextRetry.onclick = () => { shownCard = explainKeys(stage, draft())[0] || 'evidence'; renderExplain(); renderRetryGuide(); refreshGuide(); };
   const back = $('back-to-experiment'); if (back) back.onclick = () => setStep('experiment');
   const done = $('reflect-done'); if (done) done.onclick = () => { const dd = draft(); dd.reflectDone = true; persist(); renderExplain(); renderLevelChrome(); celebrate(celebrate.already); };
 }
@@ -435,35 +467,64 @@ function submit() {
       d.lastTransfer = { item: d.transferItem, value: d.transfer }; d.transferItem = d.transferItem === 'A' ? 'B' : 'A'; d.transfer = ''; d.submitted = false; persist(false);
     }
     const n = result.wrong.length || 1;
-    sound.play('bad'); sayText = result.parts.design === false ? '浇水方案还没让湿度保持在绿色带里。' : `有 ${n} 处和你的实验证据对不上，已经标红。先读反馈，再改。`; sayTone = 'bad';
-    renderExplain(); renderLevelChrome(); refreshGuide();
+    sound.play('bad'); sayText = result.parts.design === false ? '你选定的阈值还不能只在喧哗时提示。' : `有 ${n} 处和你的实验证据对不上，已经标红。先读反馈，再改。`; sayTone = 'bad';
+    if ((d.attempts || 0) >= 1) sayText += ' 看一看「二刷小提示」。';
+    renderExplain(); renderLevelChrome(); renderRetryGuide(); refreshGuide();
   }
 }
+
+function renderRetryGuide() {
+  let box = $('retry-guide');
+  if (!box) {
+    box = document.createElement('aside');
+    box.id = 'retry-guide';
+    box.className = 'retry-guide';
+    box.hidden = true;
+    const main = $('level-main') || $('level');
+    if (main) main.appendChild(box);
+  }
+  if (screen !== 'level' || !guidanceOn() || canExitStage(stage)) { box.hidden = true; return; }
+  const d = draft();
+  const result = d.submitted ? R.assess(stage, d) : null;
+  const tags = result && !result.pass ? result.tags : (summaryOf(stage).tagsLatest || summaryOf(stage).tagsFirst || []);
+  const g = R.retryGuidance(stage, { ...d, _tags: tags });
+  box.hidden = false;
+  box.innerHTML = `<div class="retry-guide-card"><b>${escape(g.title)}</b><ol>${g.lines.map(l => `<li>${escape(l)}</li>`).join('')}</ol><p class="note">不给标准答案；对照你自己的实验数据再选一次。</p></div>`;
+}
+
 function celebrate(already) {
   const i = R.stageIds.indexOf(stage), last = i === R.stageIds.length - 1, sum = summaryOf(stage), n = starsOf(stage);
+  const exitOk = canExitStage(stage);
   sound.play('star'); pose('cheer0');
   const frames = setInterval(() => { const img = $('celebrate').querySelector('img'); if (img) img.src = sprite(character, img.src.includes('cheer0') ? 'cheer1' : 'cheer0'); }, 380);
   const row = (ok, label) => `<li class="${ok ? 'got' : ''}"><b>${ok ? '★' : '☆'}</b>${label}</li>`;
+  const exitBtn = exitOk
+    ? `<button type="button" id="celebrate-next" class="go-btn">${last ? '去出门条考核 →' : '回到地图，去下一站 →'}</button>`
+    : `<button type="button" id="celebrate-retry" class="go-btn">再改一改，争取 ★★ →</button>
+       <p class="note">满两颗星才能回地图。看下方小提示，对照自己的数据再检验一次。</p>`;
   $('celebrate').innerHTML = `<div class="celebrate-card"><img src="${sprite(character, 'cheer0')}" alt="" width="96" height="128"><div class="star-burst">${starText(n)}</div>
-    <p class="kicker">第${i + 1}站 · ${places[stage].name} 完成！${already ? '' : '积分 +10'}</p>
-    <ul class="star-rows">${row(n >= 1, '完成实验并说清楚')}${row(sum.explainFirst && sum.firstHintLevel < 3, '第一次检验，解释就和证据一致')}${row(sum.explainFirst && sum.transferFirst && sum.firstHintLevel < 3, '在此基础上，第一次就在新情境中判断正确')}</ul>
+    <p class="kicker">第${i + 1}站 · ${places[stage].name}${exitOk ? ' 过关！' : ' 还差星星'} ${already ? '' : (stageAwarded(stage) ? '· 积分 +10' : '')}</p>
+    <ul class="star-rows">${row(n >= 1, '完成实验并说清楚')}${row(n >= 2, '解释与实验证据一致（可二刷达标）')}${row(n >= 3, '首次独立：解释+新情境都对')}</ul>
     <h2>小递的总结：${escape(takeaways[stage])}</h2>
-    <p class="note">${already ? '本站积分之前已记录（同一轮只记一次）。' : mode === 'student' ? '积分已记录；证据星看第一次的独立表现，会显示给老师。' : '演示/测试：积分只留在本页。'}</p>
-    <button type="button" id="celebrate-next" class="go-btn">${last ? '去巡查报告站 →' : '回到地图，去下一站 →'}</button></div>`;
+    <p class="note">${already ? '本站积分之前已记录（同一轮只记一次）。' : mode === 'student' ? '积分已记录；大屏仍区分首次/最终表现。' : '演示/测试：积分只留在本页。'}</p>
+    ${exitBtn}</div>`;
   $('celebrate').hidden = false;
-  $('celebrate-next').onclick = () => { clearInterval(frames); $('celebrate').hidden = true; showMap(last ? '五站全部完成！最后去“巡查报告站”完成20题考核。' : `太棒了！下一站：${places[R.stageIds[i + 1]].name}。`); };
-  refreshGuide(); renderHud();
+  const next = $('celebrate-next');
+  if (next) next.onclick = () => { clearInterval(frames); $('celebrate').hidden = true; showMap(last ? '五站全部完成！最后走到校门「出门条」完成20题考核。' : `太棒了！下一站：${places[R.stageIds[i + 1]].name}。`); };
+  const retry = $('celebrate-retry');
+  if (retry) retry.onclick = () => { clearInterval(frames); $('celebrate').hidden = true; setStep('explain'); renderRetryGuide(); refreshGuide(); };
+  refreshGuide(); renderHud(); renderRetryGuide();
 }
 
 /* 菜单：实验记录、情境、重做 */
 $('trials-btn').onclick = () => {
   $('menu').hidden = true; const d = draft();
   const fmt = t => {
-    if (stage === 'flow') return `${R.squareScenes[t.scene]?.label}：${t.db} dB → ${t.over ? '超标，发提示' : '未超标'}`;
+    if (stage === 'flow') return t.kind === 'schematic' ? `示意图：${['s1', 's2', 's3'].map(k => R.schematicParts[t.slots?.[k]] || '？').join(' → ')} ${t.ok ? '✓' : '✗'}` : `${R.squareScenes[t.scene]?.label}：${t.db} dB → ${t.over ? '超标，发提示' : '未超标'}`;
     if (stage === 'wave') return t.kind === 'trace' ? `声音曲线 ${t.samples} 个读数，${t.min}—${t.max}（${t.unit === 'dB' ? '仿真dB' : '相对响度'}）` : `读数：${t.t}秒时 ${t.value}（在${t.leftT}秒与${t.rightT}秒之间）`;
-    if (stage === 'life') return t.kind === 'curtain' ? `窗帘：光照 ${t.min}—${t.max} lux，${t.distinct} 个不同读数` : `水温读数：${t.reading} ℃`;
+    if (stage === 'life') return t.kind === 'curtain' ? `窗帘：光照 ${t.min}—${t.max} lux，${t.distinct} 个不同读数` : '';
     if (stage === 'threshold') return `阈值 ${t.threshold} dB → ${t.alarms} 次提示`;
-    if (stage === 'design') return `${R.designData[t.data]?.label} ${t.direction === 'below' ? '≤' : '≥'} ${t.threshold}${R.designData[t.data]?.unit}：湿度 ${t.min}%—${t.max}%，${t.fit ? '合适' : '不合适'}`;
+    if (stage === 'design') return `阈值 ${t.threshold} dB：提示 ${t.alarms} 次，${t.fit ? '只在喧哗时提示' : t.falseAlarms ? '正常聊天也提示' : '喧哗时没提示'}`;
     return '';
   };
   $('trial-pop').innerHTML = `<b>本站已自动保存 ${d.trials.length} 次实验</b><ol>${d.trials.slice(-10).map(t => `<li>${escape(fmt(t))}</li>`).join('') || '<li>还没有实验记录</li>'}</ol><button type="button" id="trial-close" class="ghost-btn">关闭</button>`;
@@ -472,7 +533,7 @@ $('trials-btn').onclick = () => {
 $('story-btn').onclick = () => { $('menu').hidden = true; sayText = activities[stage].story; sayTone = ''; hintText = ''; renderBubble(); };
 $('fresh').onclick = () => {
   $('menu').hidden = true;
-  if (!confirm('清空本站的实验记录和解释，重新做实验？（首次预测、首次表现、已获积分和老师那里的历史记录都会保留）')) return;
+  if (!confirm('清空本站的实验记录和解释，重新做？（首次预测、首次表现、已获积分和老师那里的历史记录都会保留）')) return;
   const d = draft(); d.trials = []; d.explain = {}; d.transfer = ''; d.submitted = false; d.ruledOut = {}; delete d.lastTransfer; delete d.reflect; delete d.reflectDone; delete d.lastTrace; delete d.design; reviewed[stage] = false; revisit[stage] = [];
   persist(); showStage(stage);
 };
@@ -482,15 +543,15 @@ function refreshGuide() {
   if (!$('celebrate').hidden) return setFocus($('celebrate-next'), '点这里继续');
   if (screen === 'login') return loginGuide();
   if (screen === 'map') {
-    if (walking) return setFocus(null);
     const t = currentTarget();
-    return setFocus($('place-' + t), t === 'quiz' ? '去完成20题考核' : '点这里出发');
+    const talk = document.querySelector('#rpg-talk');
+    return setFocus(talk, t === 'quiz' ? '走到校门，对话做20题' : `走到「${places[t].name}」再对话`);
   }
   if (screen === 'end') return $('game-link') && mode !== 'test' ? setFocus($('game-link'), '进入奖励小游戏') : setFocus($('end-quiz'), '开始20题考核');
   if (screen === 'quiz') return quizGuide();
   if (screen !== 'level') return setFocus(null);
   const d = draft(), p = learningProgress(stage, d, R);
-  if (learningStep === 'predict') return d.prediction ? setFocus($('think-back'), '去做实验') : setFocus(document.querySelector('.think-options'), '选一个你的想法');
+  if (learningStep === 'predict') return d.prediction ? setFocus($('think-back'), '去做一做') : setFocus(document.querySelector('.think-options'), '选一个你的想法');
   if (learningStep === 'experiment') {
     const next = nextExperimentAction(stage, p.checks, experiment?.options() || {});
     renderBubble();

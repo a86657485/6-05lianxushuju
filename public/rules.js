@@ -6,12 +6,15 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  /* 每站对应教参的学习目标（goal 1—3）与教学重难点（focus：key=重点“连续量数据的表现形式”，hard=难点“阈值的含义与作用”）。 */
+  const GOALS = ['了解控制系统工作时产生的数据', '了解连续量的表现形式及应用', '能说出阈值在控制系统中的作用'];
+  const FOCI = { key: '重点：连续量数据的表现形式', hard: '难点：阈值的含义与作用' };
   const stages = [
-    { id: 'flow', name: '数据在哪里流动', short: '数据流动', points: 10 },
-    { id: 'wave', name: '声音数据的样子', short: '波形与散点', points: 10 },
-    { id: 'life', name: '生活中的连续量', short: '生活连续量', points: 10 },
-    { id: 'threshold', name: '阈值：何时该提示', short: '阈值', points: 10 },
-    { id: 'design', name: '种植园自动浇水', short: '迁移设计', points: 10 }
+    { id: 'flow', name: '画监测系统示意图：什么在流动', short: '数据流动', points: 10, goal: 1, focus: null, textbook: '课文导入·噪声监测系统组成' },
+    { id: 'wave', name: '学习活动1：分析采集的数据及特点', short: '波形与散点', points: 10, goal: 2, focus: 'key', textbook: '学习活动1' },
+    { id: 'life', name: '学习活动2：感受生活中的连续量', short: '生活连续量', points: 10, goal: 2, focus: 'key', textbook: '学习活动2' },
+    { id: 'threshold', name: '学习活动3：找阈值，看阈值的作用', short: '阈值的作用', points: 10, goal: 3, focus: 'hard', textbook: '学习活动3' },
+    { id: 'design', name: '拓展与提升：给教室噪声监测器定阈值', short: '定阈值', points: 10, goal: 3, focus: 'hard', textbook: '拓展与提升' }
   ];
   const stageIds = stages.map(s => s.id);
   const NIGHT_LIMIT = 55; // 教材案例1：夜间超过55 dB发出提示
@@ -30,6 +33,10 @@
     if (!s) return null;
     return round1(s.base + 2.5 * Math.sin(seed * 1.7 + s.base));
   }
+  /* 教材插图“噪声监测系统组成”：声音 → 数据采集装置 → 数据处理装置 → 数据输出装置。学生先把三个装置放进示意图。 */
+  const schematicParts = { collect: '数据采集装置', process: '数据处理装置', output: '数据输出装置' };
+  const schematicAnswer = { s1: 'collect', s2: 'process', s3: 'output' };
+  function schematicOk(slots) { return !!slots && typeof slots === 'object' && Object.entries(schematicAnswer).every(([k, v]) => slots[k] === v); }
   /** 计算环节：与阈值比较。教材写“超过”，等于阈值不算超过。 */
   function overLimit(value, limit = NIGHT_LIMIT) { return finite(value) && value > limit; }
 
@@ -72,46 +79,38 @@
   }
   function countAlarms(threshold) { return alarmEpisodes(nightNoise(), threshold).length; }
 
-  /* ---------- 关卡5：种植园自动浇水（四天，每半小时一个读数，仿真数据） ---------- */
-  const designData = {
-    moisture: { label: '土壤湿度', unit: '%', min: 0, max: 100 },
-    light: { label: '光照强度', unit: 'lux', min: 0, max: 1000 },
-    temp: { label: '空气温度', unit: '℃', min: 0, max: 40 }
-  };
-  const BAND = { low: 30, high: 70 }; // 这种蔬菜适宜的土壤湿度
-  function hourOf(step) { return (step / 2) % 24; }
-  const weather = [1, 0.55, 0.6, 1]; // 第2、3天多云：光照弱、气温低
-  function dayOf(step) { return Math.min(3, Math.floor(step / 48)); }
-  function lightAt(step) {
-    const h = hourOf(step);
-    if (h < 6 || h >= 18.5) return 0;
-    const x = Math.sin(Math.PI * (h - 6) / 12.5);
-    return Math.round(Math.min(900, 1100 * x) * weather[dayOf(step)]);
-  }
-  function tempAt(step) { const h = hourOf(step); return round1(20 + 11 * weather[dayOf(step)] * Math.max(0, Math.sin(Math.PI * (h - 7) / 14))); }
-  /**
-   * 规则：所选数据“降到阈值及以下”（或“升到阈值及以上”）时开水泵；
-   * 水泵每次连续工作5个时段，每段使湿度+5%；白天每半小时蒸发1%，夜晚每1.5小时蒸发1%。
-   */
-  function simulateGarden({ data = 'moisture', direction = 'below', threshold = 30 } = {}) {
-    const steps = 192;
-    let m = 56, pump = 0, waterings = 0;
-    const moisture = [], pumpOn = [], reading = [];
-    for (let i = 0; i < steps; i++) {
-      const value = data === 'moisture' ? m : data === 'light' ? lightAt(i) : tempAt(i);
-      reading.push(value);
-      const trigger = direction === 'below' ? value <= threshold : value >= threshold;
-      if (pump === 0 && trigger) { pump = 5; waterings++; }
-      if (pump > 0) { m = Math.min(100, m + 5); pump--; pumpOn.push(true); }
-      else {
-        const h = hourOf(i), day = h >= 7 && h < 17;
-        if (day || i % 3 === 0) m = Math.max(0, m - 1);
-        pumpOn.push(false);
-      }
-      moisture.push(m);
+  /* ---------- 第5站（教材“拓展与提升”）：课间教室噪声，每10秒一个读数，共10分钟（仿真数据） ---------- */
+  // 正常聊天约50—62 dB；两段喧哗（追跑打闹/大声喊）约70—78 dB。
+  const NOISY = [{ start: 14, end: 19, label: '追跑打闹' }, { start: 41, end: 45, label: '有人大声喊' }];
+  const ACCEPT = 65; // 仿真投票：大部分同学能接受的音量（教材：把大部分同学能接受的音量数值作为阈值）
+  const STANDARDS = [
+    { place: '居民区、学校（1类区）', day: 55, night: 45 },
+    { place: '商业、居住混合区（2类区）', day: 60, night: 50 }
+  ]; // GB 3096—2008《声环境质量标准》户外环境噪声限值（dB），教学引用
+  let classCache = null;
+  function classroomNoise() {
+    if (classCache) return classCache.slice();
+    const out = [];
+    for (let i = 0; i <= 60; i++) {
+      let v = 56 + 4 * Math.sin(i / 2.7) + 2 * Math.sin(i / 1.3 + 1) + 1.2 * Math.sin(i * 1.9);
+      for (const n of NOISY) if (i >= n.start && i <= n.end) v = 74 + 2.5 * Math.sin(i * 1.7);
+      out.push(round1(v));
     }
-    const min = Math.min(56, ...moisture), max = Math.max(56, ...moisture);
-    return { moisture, pumpOn, reading, min, max, waterings, fit: min >= BAND.low && max <= BAND.high };
+    classCache = out;
+    return out.slice();
+  }
+  function secLabel(i) { const s = i * 10; return Math.floor(s / 60) + '分' + String(s % 60).padStart(2, '0') + '秒'; }
+  /** 课间10分钟里的提示：连续超过阈值的一段算一次（间隔不足20秒视为同一次）。fit=只在两段喧哗时提示，且两段都提示到。 */
+  function simulateClassroom(threshold) {
+    const series = classroomNoise(), eps = [];
+    let cur = null;
+    series.forEach((v, i) => {
+      if (v > threshold) { if (cur && i - cur.end <= 2) { cur.end = i; cur.peak = Math.max(cur.peak, v); } else { cur = { start: i, end: i, peak: v }; eps.push(cur); } }
+    });
+    const inNoisy = e => NOISY.some(n => e.start <= n.end && e.end >= n.start && e.start >= n.start - 1 && e.end <= n.end + 1);
+    const falseAlarms = eps.filter(e => !inNoisy(e)).length;
+    const caught = NOISY.filter(n => eps.some(e => e.start <= n.end && e.end >= n.start)).length;
+    return { alarms: eps.length, overSec: series.filter(v => v > threshold).length * 10, falseAlarms, caught, missed: NOISY.length - caught, fit: falseAlarms === 0 && caught === NOISY.length, episodes: eps.map(e => ({ ...e, startLabel: secLabel(e.start), endLabel: secLabel(e.end) })) };
   }
 
   /* ---------- 证据检查（界面与服务端同一函数） ---------- */
@@ -123,13 +122,14 @@
     highway: { text: '小夏爸爸的车速表显示95 km/h，这条高速公路车道限速100～120 km/h。', answer: '100～120 km/h', options: ['95 km/h', '100～120 km/h', '车速表'], tags: { '95 km/h': 'threshold-is-data', '车速表': 'threshold-is-device' } }
   };
   /* 生活数据卡：连续量 c；不是连续量的分为“只能一个一个数”（count）和“只有几种状态”（state），两种理由都算判断正确。 */
+  /* 教材活动2.3“在校园生活中，哪些数据属于连续量？”＋教参蓝栏举例（上课铃声、接水水面、阳光时强时弱、生长期身高、烧水水温）。 */
   const lifeCards = {
-    light: { label: '拉窗帘时教室里的光照强度', kind: 'c' },
-    water: { label: '烧水时壶里的水温', kind: 'c' },
+    bell: { label: '一阵上课铃声的响度', kind: 'c' },
     cup: { label: '接水时杯中水面的高度', kind: 'c' },
-    seedling: { label: '种植园里幼苗的高度', kind: 'c' },
+    height: { label: '生长期同学的身高', kind: 'c' },
+    water: { label: '烧水时壶里的水温', kind: 'c' },
     people: { label: '班级里的学生人数', kind: 'count' },
-    lamp: { label: '电灯开关是开还是关', kind: 'state' },
+    lamp: { label: '教室电灯开关是开还是关', kind: 'state' },
     rope: { label: '一分钟跳绳的个数', kind: 'count' }
   };
 
@@ -138,7 +138,10 @@
     const check = (id, label, complete) => ({ id, label, complete: !!complete });
     if (stage === 'flow') {
       const valid = ts.filter(t => squareScenes[t.scene] && finite(t.db) && t.over === overLimit(t.db));
-      return [check('under', '一次未超过55 dB的监测', valid.some(t => !t.over)), check('over', '一次超过55 dB的监测', valid.some(t => t.over))];
+      return [
+        check('schematic', '把三个装置放进噪声监测系统示意图', ts.some(t => t.kind === 'schematic' && schematicOk(t.slots))),
+        check('under', '一次未超过55 dB的监测', valid.some(t => !t.over)), check('over', '一次超过55 dB的监测', valid.some(t => t.over))
+      ];
     }
     if (stage === 'wave') {
       return [
@@ -148,8 +151,7 @@
     }
     if (stage === 'life') {
       return [
-        check('curtain', '慢慢拉动窗帘，记录光照变化', ts.some(t => t.kind === 'curtain' && Number.isInteger(t.distinct) && t.distinct >= 8 && finite(t.min) && finite(t.max) && t.max - t.min >= 300)),
-        check('kettle', '烧水途中读出一个中间水温', ts.some(t => t.kind === 'kettle' && finite(t.reading) && t.reading > 20 && t.reading < 100))
+        check('curtain', '慢慢拉动窗帘，记录光照变化', ts.some(t => t.kind === 'curtain' && Number.isInteger(t.distinct) && t.distinct >= 8 && finite(t.min) && finite(t.max) && t.max - t.min >= 300))
       ];
     }
     if (stage === 'threshold') {
@@ -160,11 +162,10 @@
       ];
     }
     if (stage === 'design') {
-      const valid = ts.filter(t => designData[t.data] && ['below', 'above'].includes(t.direction) && finite(t.threshold) && t.fit === simulateGarden(t).fit);
-      const keys = new Set(valid.map(t => t.data + '|' + t.direction + '|' + t.threshold));
+      const valid = ts.filter(t => Number.isInteger(t.threshold) && t.threshold >= 40 && t.threshold <= 90 && t.alarms === simulateClassroom(t.threshold).alarms && t.fit === simulateClassroom(t.threshold).fit);
       return [
-        check('fit', '一次让湿度保持在30%—70%的运行', valid.some(t => t.fit)),
-        check('compare', '至少比较两种不同设置', keys.size >= 2)
+        check('fit', '一次只在喧哗时提示的阈值', valid.some(t => t.fit)),
+        check('compare', '至少比较两个不同的阈值', new Set(valid.map(t => t.threshold)).size >= 2)
       ];
     }
     return [];
@@ -177,23 +178,23 @@
   const lifeExplain = Object.fromEntries(Object.entries(lifeCards).map(([k, v]) => [k, v.kind === 'c' ? 'c' : ['count', 'state']]));
   const goals = {
     flow: { prediction: 'all', explain: { evidence: 'result', input: 'sound-data', compute: 'judge', output: 'display' }, transfer: 'flow' },
-    wave: { prediction: 'wave', explain: { evidence: 'between', reason: 'continuous' }, transfer: 'mid' },
-    life: { prediction: 'gradual', explain: { evidence: 'range', ...lifeExplain }, transfer: 'yes' },
-    threshold: { prediction: 'more', explain: { evidence: 'threshold', where: 'compute', ...Object.fromEntries(Object.entries(thresholdCases).map(([k, v]) => ['case:' + k, v.answer])) }, transfer: 'earlier' },
-    design: { prediction: 'low', explain: { evidence: 'direct', role: 'decide', raise: 'often' }, transfer: 'ok' }
+    wave: { prediction: 'wave', explain: { collect: 'sound', evidence: 'between', reason: 'continuous' }, transfer: 'mid' },
+    life: { prediction: 'gradual', explain: { evidence: 'range', paper: 'together', meter: 'any', ...lifeExplain }, transfer: 'yes' },
+    threshold: { prediction: 'more', explain: { evidence: 'threshold', role: 'judge', where: 'compute', ...Object.fromEntries(Object.entries(thresholdCases).map(([k, v]) => ['case:' + k, v.answer])) }, transfer: 'earlier' },
+    design: { prediction: 'accept', explain: { evidence: 'context', role: 'decide', raise: 'miss' }, transfer: 'judge' }
   };
   const predictionValues = {
     flow: ['input', 'all', 'output'], wave: ['wave', 'scatter'], life: ['gradual', 'jump'],
-    threshold: ['more', 'less', 'same'], design: ['low', 'mid', 'high']
+    threshold: ['more', 'less', 'same'], design: ['standard', 'accept', 'quiet']
   };
   const transferItems = ['A', 'B'];
   /** 每张卡允许的选项值（服务端拒绝伪造值，也用于句块校验）。 */
   const optionValues = {
     flow: { evidence: ['result', 'device', 'scene'], input: ['sound-data', 'collector', 'early-judge'], compute: ['judge', 'processor', 'raw'], output: ['display', 'screen', 'music'], transfer: ['flow', 'devices', 'matter'] },
-    wave: { evidence: ['between', 'gap', 'only'], reason: ['continuous', 'pretty', 'bigger'], transfer: ['mid', 'none', 'same'] },
-    life: { evidence: ['range', 'two', 'steps'], ...Object.fromEntries(Object.keys(lifeCards).map(k => [k, ['c', 'count', 'state']])), transfer: ['yes', 'no', 'steps'] },
-    threshold: { evidence: ['threshold', 'louder', 'broken'], where: ['compute', 'input', 'output'], ...Object.fromEntries(Object.entries(thresholdCases).map(([k, v]) => ['case:' + k, v.options])), transfer: ['earlier', 'faster', 'accurate'] },
-    design: { evidence: ['direct', 'easy', 'any'], role: ['decide', 'measure', 'pump'], raise: ['often', 'later', 'same'], transfer: ['ok', 'x1', 'x2'] }
+    wave: { collect: ['sound', 'light', 'screen'], evidence: ['between', 'gap', 'only'], reason: ['continuous', 'pretty', 'bigger'], transfer: ['mid', 'none', 'same'] },
+    life: { evidence: ['range', 'two', 'steps'], paper: ['together', 'onoff', 'none'], meter: ['any', 'marks', 'onoff'], ...Object.fromEntries(Object.keys(lifeCards).map(k => [k, ['c', 'count', 'state']])), transfer: ['yes', 'no', 'steps'] },
+    threshold: { evidence: ['threshold', 'louder', 'broken'], role: ['judge', 'still', 'quieter'], where: ['compute', 'input', 'output'], ...Object.fromEntries(Object.entries(thresholdCases).map(([k, v]) => ['case:' + k, v.options])), transfer: ['earlier', 'faster', 'accurate'] },
+    design: { evidence: ['context', 'standard', 'louder'], role: ['decide', 'measure', 'volume'], raise: ['miss', 'more', 'same'], transfer: ['judge', 'data', 'device'] }
   };
 
   /* ---------- 常见误解：干扰项按误解设计，选错时记录误解标签（教师大屏统计） ---------- */
@@ -216,22 +217,25 @@
     'data-changed': '认为提示次数变化是因为数据变了',
     'threshold-no-effect': '认为改阈值不会影响结果',
     'threshold-direction': '弄反阈值调高、调低的后果',
-    'any-data': '认为采集什么数据都行，不看需求',
-    'threshold-mid': '认为阈值放在范围正中间最合适',
-    'threshold-high': '认为阈值设得越高越保险',
+    'scene-as-collect': '分不清监测器要采集的是哪种数据',
+    'blow-no-relation': '看不出吹气力度与纸片晃动一起连续变化',
+    'meter-marks-only': '认为仪表只能停在刻度线上',
+    'no-threshold-ok': '认为没有阈值系统也能判断、或阈值会改变数据本身',
+    'standard-copy': '认为标准必须原样照用，不看实际情况',
+    'threshold-quiet': '认为阈值越低越好（越安静越好）',
     'ipo-confused': '分不清输入数据、阈值和输出'
   };
   const optionTags = {
     flow: { evidence: { device: 'device-as-data', scene: 'scene-as-data' }, input: { collector: 'device-as-data', 'early-judge': 'stage-mix' }, compute: { processor: 'device-as-data', raw: 'stage-mix' }, output: { screen: 'device-as-data', music: 'scene-as-data' }, transfer: { devices: 'device-as-data', matter: 'scene-as-data' } },
-    wave: { evidence: { gap: 'gap-no-data', only: 'gap-no-data' }, reason: { pretty: 'pretty-reason', bigger: 'continuous-increasing' }, transfer: { none: 'gap-no-data', same: 'step-change' } },
-    life: { evidence: { two: 'cont-as-discrete', steps: 'cont-as-discrete' }, transfer: { no: 'cont-as-discrete', steps: 'step-change' } },
-    threshold: { evidence: { louder: 'data-changed', broken: 'data-changed' }, where: { input: 'threshold-is-data', output: 'threshold-is-output' }, transfer: { faster: 'threshold-is-output', accurate: 'threshold-is-device' } },
-    design: { evidence: { easy: 'any-data', any: 'any-data' }, role: { measure: 'threshold-is-device', pump: 'threshold-is-output' }, raise: { later: 'threshold-direction', same: 'threshold-no-effect' }, transfer: { x1: 'ipo-confused', x2: 'ipo-confused' } }
+    wave: { collect: { light: 'scene-as-collect', screen: 'device-as-data' }, evidence: { gap: 'gap-no-data', only: 'gap-no-data' }, reason: { pretty: 'pretty-reason', bigger: 'continuous-increasing' }, transfer: { none: 'gap-no-data', same: 'step-change' } },
+    life: { evidence: { two: 'cont-as-discrete', steps: 'cont-as-discrete' }, paper: { onoff: 'blow-no-relation', none: 'blow-no-relation' }, meter: { marks: 'meter-marks-only', onoff: 'cont-as-discrete' }, transfer: { no: 'cont-as-discrete', steps: 'step-change' } },
+    threshold: { evidence: { louder: 'data-changed', broken: 'data-changed' }, role: { still: 'no-threshold-ok', quieter: 'no-threshold-ok' }, where: { input: 'threshold-is-data', output: 'threshold-is-output' }, transfer: { faster: 'threshold-is-output', accurate: 'threshold-is-device' } },
+    design: { evidence: { standard: 'standard-copy', louder: 'data-changed' }, role: { measure: 'threshold-is-device', volume: 'threshold-is-output' }, raise: { more: 'threshold-direction', same: 'threshold-no-effect' }, transfer: { data: 'threshold-is-data', device: 'threshold-is-device' } }
   };
   /** 预测里的初始想法（预测不判对错，只用于大屏“预测→结果”的转变统计）。 */
   const predictionTags = {
     flow: { input: 'only-one-stage', output: 'only-one-stage' }, wave: { scatter: 'gap-no-data' }, life: { jump: 'cont-as-discrete' },
-    threshold: { less: 'threshold-direction', same: 'threshold-no-effect' }, design: { mid: 'threshold-mid', high: 'threshold-high' }
+    threshold: { less: 'threshold-direction', same: 'threshold-no-effect' }, design: { standard: 'standard-copy', quiet: 'threshold-quiet' }
   };
   function tagFor(stage, key, value) {
     if (!value) return null;
@@ -250,11 +254,11 @@
     wave: { saw: ['between', 'dots'], so: ['continuous', 'scatter'] },
     life: { saw: ['many', 'two'], so: ['continuous', 'count'] },
     threshold: { saw: ['diff', 'same'], so: ['compute', 'data'] },
-    design: { saw: ['band', 'any'], so: ['need', 'mid'] }
+    design: { saw: ['only-noisy', 'std-ok'], so: ['need', 'copy'] }
   };
   const reflectTags = {
     flow: { screen: 'only-one-stage', device: 'device-as-data', input: 'only-one-stage' }, wave: { dots: 'gap-no-data', scatter: 'gap-no-data' },
-    life: { two: 'cont-as-discrete', count: 'countable-continuous' }, threshold: { same: 'threshold-no-effect', data: 'threshold-is-data' }, design: { any: 'any-data', mid: 'threshold-mid' }
+    life: { two: 'cont-as-discrete', count: 'countable-continuous' }, threshold: { same: 'threshold-no-effect', data: 'threshold-is-data' }, design: { 'std-ok': 'standard-copy', copy: 'standard-copy' }
   };
   function validReflect(stage, r) {
     const o = reflectOptions[stage];
@@ -269,38 +273,42 @@
       compute: '计算环节需再检查：比较之后“算”出了什么数据？',
       output: '输出环节需再检查：输出的是数据结果，还是显示屏这个设备？',
       transfer: '新系统：数据怎样从输入流到输出？',
-      experiment: '记录一次未超过、一次超过55 dB的监测'
+      experiment: '先把三个装置放进示意图，再记录一次未超过、一次超过55 dB的监测'
     },
     wave: {
       compare: '对照需再检查：你的预测和你画出的曲线一致吗？',
+      collect: '采集的数据需再检查：噪声监测系统要采集环境中的哪种数据？',
       evidence: '证据需再检查：你在两个圆点之间读到的数值说明了什么？',
       reason: '曲线更合适的理由需再检查：声音数据在时间上有什么特点？',
       transfer: '两次读数之间的时刻也有数值吗？',
-      experiment: '画出起伏的声音曲线，并读出两个散点之间的数值'
+      experiment: '打开（或录）一段声音曲线，并读出两个散点之间的数值'
     },
     life: {
       compare: '对照需再检查：你的预测和光照表的变化一致吗？',
       evidence: '证据需再检查：光照经过了那么多不同读数，说明什么？',
+      paper: '吹纸片需再检查：吹气力度一点点变大时，纸片怎样变化？',
+      meter: '仪表需再检查：指针或液柱能停在两条刻度线之间吗？',
       sort: '连续量分类需再检查：数据能否在一个范围内取到中间的任意数值？',
       transfer: '新情境：变化时会不会经过中间的数值？',
-      experiment: '拉动窗帘记录光照变化，并在烧水途中读一个水温'
+      experiment: '慢慢拉动窗帘，记录光照的变化'
     },
     threshold: {
       compare: '对照需再检查：你的预测和两次运行的提示次数一致吗？',
       evidence: '证据需再检查：同一晚的数据，什么改变了判断结果？',
+      role: '阈值的作用需再检查：没有用来比较的参考值，系统能判断“超标”吗？',
       where: '阈值的位置需再检查：阈值是采集到的数据，还是用来比较的参考值？',
       cases: '案例中的阈值需再检查：找出系统用来比较的那个参考值，而不是测到的数据。',
       transfer: '新情境：只改了参考值，结果会怎样变？',
       experiment: '用55 dB运行一次，再换一个明显不同的阈值运行比较'
     },
     design: {
-      compare: '对照需再检查：你预测的阈值位置和你成功的方案一致吗？',
-      evidence: '证据需再检查：水泵要回应的需求是什么？',
-      design: '方案还没让湿度一直保持在30%—70%：回看曲线哪里跑出了绿色带，再调整。',
+      compare: '对照需再检查：你预测的阈值依据和你成功的阈值一致吗？',
+      evidence: '证据需再检查：为什么不能直接照搬55 dB？看看那次运行提示了几次、在什么时候。',
+      design: '你选定的阈值还不能“只在喧哗时提示”：回看提示记录，再调整阈值。',
       role: '阈值作用需再检查：阈值是测量工具，还是比较判断的参考？',
-      raise: '阈值调高后的结果需再检查：比较两次运行的浇水次数和最高湿度。',
-      transfer: '新情境：分清输入数据、阈值和输出。',
-      experiment: '找到一种合适设置，并与另一种设置比较'
+      raise: '阈值调到很高后的结果需再检查：喧哗时的声音还会超过它吗？',
+      transfer: '新情境：标准里的那个数，是测到的成绩，还是用来比较的参考？',
+      experiment: '找到一个只在喧哗时提示的阈值，并与另一个阈值比较'
     }
   };
 
@@ -331,8 +339,8 @@
     }
     let designOk = true;
     if (stage === 'design') {
-      const d = obj(r.design), sim = simulateGarden(d);
-      designOk = d.data === 'moisture' && d.direction === 'below' && finite(d.threshold) && sim.fit;
+      const d = obj(r.design);
+      designOk = Number.isInteger(d.threshold) && simulateClassroom(d.threshold).fit;
       if (!designOk) add(m.design);
     }
     const transferOk = transferItems.includes(r.transferItem || 'A') && r.transfer === g.transfer;
@@ -345,8 +353,11 @@
 
   /**
    * 一站的证据摘要（服务端写入记录、大屏统计、学生端显示共用）。
-   * 证据星：完成本站 1 颗；首次提交时解释卡全对 +1；首次提交时解释卡全对且迁移题也答对，再 +1（逐级，不单独为迁移给星）。
-   * 首次提交前用了第3级“具体帮助”的，后两颗不计（记作有支持的表现，不扣积分）。
+   * 证据星（出门门禁看 ★≥2）：
+   *   ★1 完成本站（检验通过）；
+   *   ★2 解释卡与证据一致——首次或后来修订通过均可（支持二刷达标）；
+   *   ★3 首次独立（未用第3级具体帮助）且解释+迁移都对（逐级；迁移三选一不单独给星）。
+   * 首次提交字段（explainFirst 等）仍只看第一次，供大屏诊断；星数允许二刷挣到第2颗。
    */
   function stageSummary(stage, st, awarded) {
     st = obj(st);
@@ -354,8 +365,9 @@
     const fa = fs ? assess(stage, fs) : null, la = ls ? assess(stage, ls) : null;
     const firstHint = Number(fs?.conceptHintLevel) || 0, independent = firstHint < 3;
     const explainFirst = !!fa?.parts.explain, transferFirst = !!fa?.parts.transfer;
-    // 星是逐级的：第三颗要求解释和迁移第一次都对（单道三选一的迁移题乱猜也有1/3机会，不能单独给星）
-    const stars = awarded ? 1 + (explainFirst && independent ? 1 : 0) + (explainFirst && transferFirst && independent ? 1 : 0) : 0;
+    const explainOk = !!(fa?.parts.explain || la?.parts.explain);
+    // ★2 可二刷挣到；★3 仍要求首次独立且解释+迁移都对
+    const stars = awarded ? 1 + (explainOk ? 1 : 0) + (explainFirst && transferFirst && independent ? 1 : 0) : 0;
     const pred = st.first?.prediction || null;
     const reflectSrc = [latest, ls].find(x => validReflect(stage, x?.reflect));
     const reflect = reflectSrc ? { saw: reflectSrc.reflect.saw, so: reflectSrc.reflect.so } : null;
@@ -364,23 +376,74 @@
     return {
       prediction: pred, predictionCorrect: pred ? pred === goals[stage].prediction : null, predictionTag: pred ? predictionTags[stage][pred] || null : null,
       submitted: !!fs, attempts: Number.isInteger(st.attempts) ? st.attempts : (fs ? 1 : 0), firstPass: !!fa?.pass, passed: !!awarded,
-      explainFirst, transferFirst, transferFinal: !!la?.parts.transfer,
+      explainFirst, transferFirst, transferFinal: !!la?.parts.transfer, explainOk,
       firstHintLevel: firstHint, conceptHintLevel: Math.min(3, Math.max(...levels)), opHints: Number(latest?.hints) || 0,
       tagsFirst: fa?.tags || [], tagsLatest: la && !la.pass ? la.tags : [], reflect, reflectTags: [...new Set(rTags)], stars
     };
+  }
+
+  /** 二刷教学引导（不给标准答案）：按未完成证据 / 误解标签给观察与思路。attempts≥1 时学生端启用。 */
+  function retryGuidance(stage, record = {}) {
+    const checks = experimentChecks(stage, record).filter(c => !c.complete);
+    const tags = Array.isArray(record._tags) ? record._tags : [];
+    const tips = {
+      flow: {
+        miss: '回看示意图：声音先被谁收进来？谁来算？谁把结果送出去？（教参：先回顾输入—计算—输出，再画示意图。）',
+        'device-as-data': '装置是“谁在工作”，数据是它收到、算出、送出的内容。哪一格里的内容会随声音变化？',
+        'scene-as-data': '环境里的声音要先被采集，才变成输入数据。计算格里多出来的是什么？',
+        'stage-mix': '输入、计算、输出三格各看一眼：哪一格是“比较后才出现”的？',
+        default: '对照你的两次监测记录，找出“算”出来的那一条，再选三环节里流动的数据。'
+      },
+      wave: {
+        miss: '先打开监测器记录，再在两个圆点之间的曲线上点一下读数。（教参：先凭第一感觉判断，再体会连续。）',
+        'gap-no-data': '你亲手点出的读数在不在圆点上？圆点之间曲线是连着的还是断开的？',
+        'pretty-reason': '好看不是理由。任意两个时刻之间还有没有数值？',
+        'continuous-increasing': '看你的曲线：声音是一直变大，还是有升有降？',
+        default: '比较“只看散点”和“显示曲线”：哪个更能看出声音一直在变？'
+      },
+      life: {
+        miss: '慢慢拉窗帘，让光照表经过许多不同读数；再吹纸片、看仪表。（教参：提供计量仪表，直观感受连续量。）',
+        'cont-as-discrete': '能不能取到中间的某个数值？能一个一个数的，通常不是连续量。',
+        'blow-no-relation': '轻轻吹和用力吹，纸片晃动一样吗？两者是不是一起连续变化？',
+        'meter-marks-only': '车速从40加到41时，指针停在刻度线上，还是可以停在两条刻度之间？',
+        default: '用“能否取到中间任意数值”判断：上课铃声、水面高度、人数、开关……哪些是连续量？'
+      },
+      threshold: {
+        miss: '同一晚数据，先用55 dB运行，再换一个相差明显的阈值再运行，比较提示次数。（教参：不强调概念，强调作用。）',
+        'data-changed': '两次回放的是同一条曲线吗？变的是红线（阈值），还是声音本身？',
+        'no-threshold-ok': '如果没有参考值，64 dB 算“吵”还是“不吵”？和谁比？',
+        'threshold-is-data': '测到的读数是输入数据；用来比较、决定是否提示的那个数才是阈值。',
+        'threshold-is-device': '传感器、芯片、报警器是装置；阈值是一个参考数值。',
+        'threshold-is-output': '提示、报警是输出；阈值是比较时用的参考。',
+        default: '阈值变了，同一组数据的判断结果怎样变？在案例里找出那个“参考值”。'
+      },
+      design: {
+        miss: '参考噪声标准和同学能接受的音量，试几个阈值，找到“只在喧哗时提示”的那一档。',
+        'standard-copy': '55 dB 是居民区夜间标准。课间正常聊天会不会也超过55？阈值要按实际情况设定。',
+        'data-changed': '两次用的是同一段课间录音吗？变的只有阈值。',
+        'threshold-direction': '阈值调高，声音更难超过它，提示会变多还是变少？',
+        'threshold-no-effect': '回看喧哗时的最高音量：它超过你设的阈值了吗？',
+        default: '标准是参考；再问“大部分同学能接受的音量”，两者一起定阈值。'
+      }
+    }[stage] || { default: '先完成实验证据，再对照自己的数据说清楚。' };
+    const lines = [];
+    if (checks.length) lines.push('还缺：' + checks.map(c => c.label).join('；') + '。' + (tips.miss || tips.default));
+    for (const tag of tags) if (tips[tag]) lines.push(tips[tag]);
+    if (!lines.length) lines.push(tips.default);
+    return { active: true, title: '二刷小提示', lines: [...new Set(lines)].slice(0, 3) };
   }
 
   /** 教师测试的达标示例（虚构，不进入班级统计）。 */
   const full = (stage, extra) => ({ explain: { compare: 'match', ...goals[stage].explain }, transfer: goals[stage].transfer, transferItem: 'A', prediction: goals[stage].prediction, ...extra });
   const life = full('life', {}); for (const [k, v] of Object.entries(lifeCards)) life.explain[k] = v.kind;
   const examples = {
-    flow: full('flow', { trials: [{ scene: 'quiet', db: measureSquare('quiet', 1), over: false }, { scene: 'dance', db: measureSquare('dance', 2), over: true }] }),
+    flow: full('flow', { trials: [{ kind: 'schematic', slots: { ...schematicAnswer } }, { scene: 'quiet', db: measureSquare('quiet', 1), over: false }, { scene: 'dance', db: measureSquare('dance', 2), over: true }] }),
     wave: full('wave', { trials: [{ kind: 'trace', source: 'simulation', samples: 60, min: 38, max: 70 }, { kind: 'between', t: 7.5, value: 52.3, leftT: 6, rightT: 8 }] }),
-    life: { ...life, trials: [{ kind: 'curtain', distinct: 20, min: 60, max: 800 }, { kind: 'kettle', reading: 63.5 }] },
+    life: { ...life, trials: [{ kind: 'curtain', distinct: 20, min: 60, max: 800 }] },
     threshold: full('threshold', { trials: [{ threshold: 55, alarms: countAlarms(55) }, { threshold: 45, alarms: countAlarms(45) }] }),
     design: full('design', {
-      trials: [35, 60].map(threshold => { const t = { data: 'moisture', direction: 'below', threshold }, g = simulateGarden(t); return { ...t, fit: g.fit, min: g.min, max: g.max, waterings: g.waterings }; }),
-      design: { data: 'moisture', direction: 'below', threshold: 35 }
+      trials: [55, ACCEPT].map(threshold => { const g = simulateClassroom(threshold); return { threshold, alarms: g.alarms, falseAlarms: g.falseAlarms, caught: g.caught, fit: g.fit }; }),
+      design: { threshold: ACCEPT }
     })
   };
   for (const [k, e] of Object.entries(examples)) { e.submitted = true; e.reflect = { saw: reflectOptions[k].saw[0], so: reflectOptions[k].so[0] }; }
@@ -388,8 +451,9 @@
   return {
     stages, stageIds, NIGHT_LIMIT, squareScenes, measureSquare, overLimit,
     nightNoise, minuteLabel, alarmEpisodes, countAlarms,
-    designData, BAND, simulateGarden, lightAt, tempAt,
+    GOALS, FOCI, schematicParts, schematicAnswer, schematicOk,
+    NOISY, ACCEPT, STANDARDS, classroomNoise, secLabel, simulateClassroom,
     thresholdCases, lifeCards, experimentChecks, assess, goals, predictionValues, messages, examples,
-    transferItems, optionValues, tagLabels, optionTags, predictionTags, tagFor, reflectOptions, reflectTags, validReflect, answerKey, stageSummary
+    transferItems, optionValues, tagLabels, optionTags, predictionTags, tagFor, reflectOptions, reflectTags, validReflect, answerKey, stageSummary, retryGuidance
   };
 });

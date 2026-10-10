@@ -1,7 +1,7 @@
 /* 教师测试模式中的标准操作、答案与题库参考（逆向设计版：对照、证据、概念、迁移A/B、句块）。 */
 import { escape } from './sync.mjs?v=1';
-import { activities, operations } from './activities.mjs?v=3';
-import { cardKeys, cardSpec } from './cards.mjs?v=3';
+import { activities, operations } from './activities.mjs?v=5';
+import { cardKeys, cardSpec } from './cards.mjs?v=5';
 
 export function renderStageReference(stage, R) {
   const a = activities[stage], g = R.goals[stage], ex = R.examples[stage];
@@ -13,7 +13,7 @@ export function renderStageReference(stage, R) {
     return `<li>${escape(sp.question)}<br>→ <b>${escape(ok)}</b><br><span class="note">干扰项：${wrong}</span></li>`;
   }).join('');
   const tr = ['A', 'B'].map(item => { const t = a.transfer[item]; return `<li>情境${item}：${escape(t.q)} → <b>${escape(label(t.options, g.transfer))}</b></li>`; }).join('');
-  const design = stage === 'design' ? '<p><b>可接受方案：</b>采集土壤湿度，“降到阈值及以下时”开水泵，阈值30%—45%（仿真结果均保持在30%—70%）。多解按约束判断。</p>' : '';
+  const design = stage === 'design' ? '<p><b>可接受阈值：</b>约62—76 dB（课间正常聊天最高约62 dB，两段喧哗约72—76 dB），多解按“只在喧哗时提示”判断。照搬55 dB会在正常聊天时提示4次；45 dB几乎整个课间都在响；77 dB以上喧哗也不提示。教参：重在体会阈值“依据实际情况设定、可参考标准”的作用，不考概念。</p>' : '';
   const th = stage === 'threshold' ? '<p class="note"><b>课堂追问素材：</b>仿真夜间数据的提示次数为 40→5、45→6、50→4、55→3、60→2、65→1、70→0；阈值低于约40 dB时几乎整晚超标，连成一次长时间提示（页面同时显示“超标累计分钟”）。若有学生调到很低反而次数变少，可追问“提示次数少，是不是更安静？”。</p>' : '';
   return `<div class="test-reference"><button id="test-guide-close" type="button">收起参考</button><p class="eyebrow">教师隔离测试 · 本站参考</p><h2>${escape(a.title)}</h2>
     <h3>标准操作（可以直接告诉学生）</h3><ol>${(operations[stage] || []).map(s => `<li>${escape(s)}</li>`).join('')}</ol>
@@ -25,5 +25,5 @@ export function renderStageReference(stage, R) {
 }
 export function renderExamReference(questions) {
   return `<div class="test-reference"><button id="test-guide-close" type="button">收起参考</button><p class="eyebrow">教师隔离测试 · 题库参考</p><h2>20题考核题库（共 ${questions.length} 题）</h2>
-    <p>5个目标各8题，每次每个目标随机抽4题，选项顺序也会打乱。</p><div class="test-reference-bank">${questions.map((q, i) => `<details><summary>${i + 1} · ${escape(q.goal)} · ${escape(q.prompt)}</summary><p><b>正确答案：${escape(q.options[q.answer])}</b></p><p>解析：${escape(q.explanation)}</p></details>`).join('')}</div></div>`;
+    <p>按教参三条学习目标组卷：目标1抽6题，目标2（重点：连续量的表现形式）抽7题，目标3（难点：阈值的作用）抽7题，共20题；选项顺序会打乱。</p><div class="test-reference-bank">${questions.map((q, i) => `<details><summary>${i + 1} · ${escape(q.goal)} · ${escape(q.prompt)}</summary><p><b>正确答案：${escape(q.options[q.answer])}</b></p><p>解析：${escape(q.explanation)}</p></details>`).join('')}</div></div>`;
 }

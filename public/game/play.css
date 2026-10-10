@@ -63,3 +63,5 @@ button.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid 
 .viol-opts button .num{display:inline-block;width:22px;height:22px;border-radius:50%;background:#1a2740;text-align:center;line-height:22px;margin-right:8px;font-size:12px}
 .viol-fb{min-height:22px;font-size:13px;margin:6px 0}
 .viol-fb.bad{color:#ff8a80}.viol-fb.good{color:#69f0ae}
+
+.goal-chip{display:inline-block;margin:4px 0;padding:2px 8px;border-radius:10px;background:rgba(127,230,220,.18);color:#7fe6dc;font-size:12px}

@@ -1,4 +1,4 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>第5课 · 班级学习数据大屏</title><link rel="stylesheet" href="/style.css?v=1"><link rel="stylesheet" href="/teacher-dash.css?v=3"><script src="/rules.js?v=3" defer></script><script type="module" src="/teacher.mjs?v=3"></script></head><body class="dash-body">
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>第5课 · 班级学习数据大屏</title><link rel="stylesheet" href="/style.css?v=1"><link rel="stylesheet" href="/teacher-dash.css?v=5"><script src="/rules.js?v=5" defer></script><script type="module" src="/teacher.mjs?v=5"></script></head><body class="dash-body">
 <header class="dash-head">
   <div class="dash-brand"><b>噪声监测数据站 · 学习证据大屏</b><small>第5课《连续变化的数据》 · 免密码，仅教师设备</small></div>
   <label class="dash-class">班级<select id="teacher-class"></select></label>
@@ -9,6 +9,7 @@
 <main id="dashboard" class="dash-main">
   <section id="summary" class="kpis" aria-label="关键数字"></section>
   <section id="class-charts" class="dash-grid" aria-label="当前班级学习图表">
+    <article id="c-target" class="dash-card wide"></article>
     <article id="c-progress" class="dash-card"></article>
     <article id="c-mastery" class="dash-card"></article>
     <article id="c-mis" class="dash-card"></article>
@@ -23,10 +24,11 @@
   <section id="diagnosis" class="dash-panel"></section>
   <section class="dash-panel">
     <div class="dash-tools"><h2>学生明细</h2><input id="teacher-search" aria-label="查找姓名" placeholder="查找姓名（只影响明细）"><label class="check"><input id="unfinished" type="checkbox">只看未完成</label><p id="chart-filter" class="note" role="status"></p></div>
-    <div class="table-box"><table class="dash-table"><thead><tr><th>姓名</th><th>当前站</th><th>1 数据流动</th><th>2 波形散点</th><th>3 生活连续量</th><th>4 阈值</th><th>5 迁移设计</th><th>证据星</th><th>误解</th><th>考核 首次/最近</th><th>最近同步</th><th>详情</th></tr></thead><tbody id="student-rows"></tbody></table></div>
+    <div class="table-box"><table class="dash-table"><thead><tr><th>姓名</th><th>当前站</th><th>1 数据流动<br><small>目标1</small></th><th>2 波形散点<br><small>目标2·重点</small></th><th>3 生活连续量<br><small>目标2·重点</small></th><th>4 阈值作用<br><small>目标3·难点</small></th><th>5 定阈值<br><small>目标3·难点</small></th><th>证据星</th><th>误解</th><th>考核 首次/最近</th><th>最近同步</th><th>详情</th></tr></thead><tbody id="student-rows"></tbody></table></div>
     <section id="student-detail" class="teacher-detail" hidden></section>
   </section>
-  <section class="teacher-live dash-panel"><div class="teacher-tools"><h2>全班一起观察：教室噪声监测（教材“拓展与提升”）</h2><button id="mic-start" class="primary">开启教师机麦克风</button><button id="mic-stop">停止采声</button><button id="mic-calibrate">重新校准</button></div>
+  <!-- 教师要求本课不用麦克风；拓展活动改为第5站“教室噪声监测器”仿真（教参：没有条件可结合虚拟仿真噪声监测系统）。保留代码不显示。 -->
+  <section class="teacher-live dash-panel" hidden><div class="teacher-tools"><h2>全班一起观察：教室噪声监测（教材“拓展与提升”）</h2><button id="mic-start" class="primary">开启教师机麦克风</button><button id="mic-stop">停止采声</button><button id="mic-calibrate">重新校准</button></div>
   <p>先请学生在第2站把声音来源切到“观察教师现场”，再开启麦克风。请3—4名同学在讲台附近用不同音量说话；全班讨论“大家能接受的音量”，把阈值滑块拖到那个位置，观察超过阈值时的提示。无需全班喊叫。</p>
   <label class="knob-row">现场阈值（相对响度）<input id="live-th" type="range" min="5" max="95" step="1" value="60"><b id="live-th-val">60</b></label>
   <div class="live-board"><div id="live-chart"></div><div class="live-side"><span class="alarm-lamp big" id="live-lamp"></span><p id="live-level" class="live-level">—</p><p id="live-count">提示 0 次</p></div></div>

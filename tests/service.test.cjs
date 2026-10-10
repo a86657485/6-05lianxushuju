@@ -62,7 +62,7 @@ test('关卡：按顺序解锁，积分同轮只记一次，首次预测与首�
     st = (await send(c, me, 'flow', ok, 'same-id')).body; assert.equal(st.points, 10, '重复补传不加分');
     assert.equal(st.records.flow.history.length, 3, '重复事件只记录一次');
     assert.equal(st.records.flow.attempts, 3, '作答内容不同才算一次尝试');
-    assert.equal(st.records.flow.summary.stars, 1, '首次解释没对上证据：只得通关星');
+    assert.equal(st.records.flow.summary.stars, 2, '首次解释错、后来修订对：二刷挣到 ★★（可出门）');
     assert.deepEqual(st.records.flow.summary.tagsFirst, ['no-compare', 'device-as-data'], '首次：预测不同却说一致 + 把装置当数据');
     st = (await send(c, me, 'flow', { ...ok, editedAt: Date.now() + 5 })).body; assert.equal(st.points, 10, '重做通过不重复加分');
     assert.equal(st.records.flow.first.prediction, 'input');
@@ -117,7 +117,7 @@ test('教师接口：本机可用；新轮次保留旧轮；重启后记录恢�
     const cls = (await c('/api/teacher/class?class=601')).body;
     assert.equal(cls.students.length, 3); assert.equal(cls.students.find(x => x.student.id === 't601-a').points, 10);
     assert.ok(cls.students.every(x => x.student.classId === '601'));
-    const ans = (await c('/api/teacher/answers')).body; assert.equal(ans.questions.length, 30); assert.equal(ans.goals.length, 3);
+    const ans = (await c('/api/teacher/answers')).body; assert.equal(ans.questions.length, 34); assert.equal(ans.goals.length, 3);
     assert.equal((await c('/api/teacher/live', { level: 150, threshold: 60, alarm: false, active: true, alarmCount: 0 })).status, 400);
     assert.equal((await c('/api/teacher/live', { level: 70, threshold: 60, alarm: true, active: true, alarmCount: 1 })).status, 200);
     assert.equal((await c('/api/live')).body.alarm, true);
@@ -158,7 +158,7 @@ test('学习证据：服务端重算首次/尝试/提示/误解/迁移；大屏�
     assert.deepEqual(st.records.flow.summary.tagsFirst.sort(), ['device-as-data', 'scene-as-data']);
     st = (await send(c, me, 'flow', { ...ex, transferItem: 'B', conceptHintLevel: 2, hints: 3 })).body;
     const m = st.records.flow.summary;
-    assert.equal(st.points, 10); assert.equal(m.stars, 1, '解释、迁移都不是第一次就对');
+    assert.equal(st.points, 10); assert.equal(m.stars, 2, '后来解释对即可 ★★；首次不对故无第3颗');
     assert.equal(m.attempts, 2); assert.equal(m.firstPass, false); assert.equal(m.transferFirst, false); assert.equal(m.transferFinal, true);
     assert.equal(m.conceptHintLevel, 2); assert.equal(m.opHints, 3); assert.equal(m.prediction, 'all');
     st = (await send(c, me, 'flow', { ...ex, transferItem: 'B', conceptHintLevel: 2, reflect: { saw: 'ipo', so: 'device' }, reflectDone: true })).body;
@@ -168,7 +168,7 @@ test('学习证据：服务端重算首次/尝试/提示/误解/迁移；大屏�
     const answers = Object.fromEntries(exam.questions.map(q => [q.id, 0]));
     assert.equal((await c('/api/exam/submit', { sid: me.student.id, round: me.round, examId: exam.id, answers })).status, 200);
     const cls = (await c('/api/teacher/class?class=601')).body, row = cls.students.find(x => x.student.id === 't601-b');
-    assert.ok(row.records.flow.summary && row.stars === 1);
+    assert.ok(row.records.flow.summary && row.stars === 2);
     assert.equal(row.quizAttempts[0].feedback, undefined, '大屏不带逐题内容'); assert.ok(row.quizAttempts[0].byGoal);
     const full = (await c('/api/teacher/class?class=601&full=1')).body.students.find(x => x.student.id === 't601-b');
     assert.equal(full.quizAttempts[0].feedback.length, 20, '导出保留逐题记录');

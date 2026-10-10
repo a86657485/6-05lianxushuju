@@ -3,3 +3,4 @@ runtime/
 *.sqlite*
 node_modules/
 .DS_Store
+public/demo-class.json

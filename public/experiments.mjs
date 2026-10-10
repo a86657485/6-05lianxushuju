@@ -23,21 +23,63 @@ export class FlowExperiment extends Base {
     this.scene = scene; this.seed = (this.ctx.record().trials || []).length + 1; this.busy = false;
     scene.innerHTML = `<div class="flow-world">${plazaSvg()}</div>
       <div class="ipo-board" aria-label="监测器透视：三个环节">
-        <div class="ipo-box" id="ipo-input"><small>输入</small><b>声音采集</b><span class="data-chip" id="chip-input">等待</span></div>
+        <div class="ipo-box" id="ipo-input"><small>输入</small><b>数据采集装置</b><span class="data-chip" id="chip-input">等待</span></div>
         <span class="ipo-arrow" aria-hidden="true"><i></i></span>
-        <div class="ipo-box" id="ipo-compute"><small>计算</small><b>与 55 dB 比较</b><span class="data-chip" id="chip-compute">等待</span></div>
+        <div class="ipo-box" id="ipo-compute"><small>计算</small><b>数据处理装置 · 与55 dB比较</b><span class="data-chip" id="chip-compute">等待</span></div>
         <span class="ipo-arrow" aria-hidden="true"><i></i></span>
-        <div class="ipo-box" id="ipo-output"><small>输出</small><b>显示屏 · 提示</b><span class="data-chip" id="chip-output">等待</span><i class="alarm-dot" id="flow-alarm" aria-hidden="true"></i></div>
+        <div class="ipo-box" id="ipo-output"><small>输出</small><b>数据输出装置 · 显示/报警</b><span class="data-chip" id="chip-output">等待</span><i class="alarm-dot" id="flow-alarm" aria-hidden="true"></i></div>
       </div>`;
-    controls.innerHTML = `<div class="sound-cards" role="group" aria-label="让广场上出现一种声音">
+    this.controls = controls; this.picked = null;
+    const done = (this.ctx.record().trials || []).some(t => t.kind === 'schematic' && R().schematicOk(t.slots));
+    this.slots = done ? { ...R().schematicAnswer } : {};
+    if (done) this.showSounds(); else this.showSchematic();
+    const last = (this.ctx.record().trials || []).filter(t => R().squareScenes[t.scene]).at(-1);
+    if (last) this.show(last.scene, last.db, true);
+  }
+  /* 教参：先回顾输入—计算—输出，再让学生把噪声监测系统的工作过程示意图画出来。 */
+  showSchematic() {
+    const parts = R().schematicParts, order = ['output', 'collect', 'process'];
+    this.scene.querySelector('.ipo-board').hidden = true;
+    const slot = (id, tag) => { const v = this.slots[id]; return `<button type="button" class="sch-slot${v ? ' filled' : ''}" data-slot="${id}" aria-label="${tag}环节的空框"><small>${tag}</small><b>${v ? parts[v] : '？'}</b></button>`; };
+    this.controls.innerHTML = `<div class="schematic" aria-label="噪声监测系统示意图">
+      <p class="sch-title">画一画：噪声监测系统的工作过程（教材插图）</p>
+      <div id="schematic-slots" class="sch-row"><span class="sch-src">🔊 声音</span><i>→</i>${slot('s1', '输入')}<i>→</i>${slot('s2', '计算')}<i>→</i>${slot('s3', '输出')}</div>
+      <div id="schematic-parts" class="sch-parts" role="group" aria-label="装置卡片">${order.map(k => `<button type="button" class="sch-part${this.picked === k ? ' on' : ''}" data-part="${k}" aria-pressed="${this.picked === k}" ${Object.values(this.slots).includes(k) ? 'disabled' : ''}>${parts[k]}</button>`).join('')}
+      <button type="button" id="sch-reset" class="mini-btn">重新放</button></div>
+      <p id="sch-msg" class="console-note" role="status"></p></div>`;
+    this.controls.querySelectorAll('[data-part]').forEach(b => b.onclick = () => { this.picked = b.dataset.part; this.showSchematic(); this.ctx.refresh(); });
+    this.controls.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => this.place(b.dataset.slot));
+    this.controls.querySelector('#sch-reset').onclick = () => { this.slots = {}; this.picked = null; this.showSchematic(); this.ctx.refresh(); };
+  }
+  place(slotId) {
+    if (!this.picked) { this.controls.querySelector('#sch-msg').textContent = '先点下面的一个装置卡片。'; return; }
+    for (const [k, v] of Object.entries(this.slots)) if (v === this.picked) delete this.slots[k];
+    this.slots[slotId] = this.picked; this.picked = null;
+    if (Object.keys(this.slots).length < 3) { this.showSchematic(); this.ctx.refresh(); return; }
+    const ok = R().schematicOk(this.slots);
+    this.ctx.addTrial({ kind: 'schematic', slots: { ...this.slots }, ok, at: Date.now() });
+    if (ok) {
+      this.ctx.say('示意图画好了：声音 → 数据采集装置 → 数据处理装置 → 数据输出装置。现在让监测器工作，看看三个环节里流动的是什么。', 'good');
+      this.showSounds();
+    } else {
+      const wrongKeys = Object.entries(R().schematicAnswer).filter(([k, v]) => this.slots[k] !== v).map(([k]) => k);
+      const wrongTag = wrongKeys.map(k => ({ s1: '输入', s2: '计算', s3: '输出' }[k])).join('、');
+      for (const k of wrongKeys) delete this.slots[k]; // 放错的装置退回卡片区，放对的保留
+      this.ctx.say(`${wrongTag}框放得不对。想一想：声音先被谁“收进来”？谁来“算”？谁把结果“送出去”？`, 'bad');
+      this.showSchematic();
+      this.controls.querySelector('#sch-msg').textContent = wrongTag + '框放错了，装置已退回。再想想它该放哪里。';
+    }
+    this.ctx.refresh();
+  }
+  showSounds() {
+    this.scene.querySelector('.ipo-board').hidden = false;
+    this.controls.innerHTML = `<div class="sound-cards" role="group" aria-label="让广场上出现一种声音">
       <button id="src-quiet" data-scene="quiet" class="sound-card"><span aria-hidden="true">🌙</span>夜深人静</button>
       <button id="src-chat" data-scene="chat" class="sound-card"><span aria-hidden="true">🗣</span>小声聊天</button>
       <button id="src-dance" data-scene="dance" class="sound-card"><span aria-hidden="true">🎵</span>广场舞音乐</button></div>`;
-    controls.querySelectorAll('[data-scene]').forEach(b => b.onclick = () => this.measure(b.dataset.scene));
-    const last = (this.ctx.record().trials || []).at(-1);
-    if (last && R().squareScenes[last.scene]) this.show(last.scene, last.db, true);
+    this.controls.querySelectorAll('[data-scene]').forEach(b => b.onclick = () => this.measure(b.dataset.scene));
   }
-  options() { return { busy: this.busy }; }
+  options() { return { busy: this.busy, picked: this.picked }; }
   measure(sceneKey) {
     if (this.busy) this.cancelRun?.();
     const rules = R(), db = rules.measureSquare(sceneKey, this.seed++), over = rules.overLimit(db);
@@ -99,19 +141,15 @@ export class WaveExperiment extends Base {
     const rec = this.ctx.record();
     this.source = 'simulation'; this.recording = false; this.points = rec.lastTrace?.points || []; this.unit = rec.lastTrace?.unit || 'dB';
     this.view = 'both'; this.marker = null; this.lastSpanSmall = false; this.knob = 45; this.sim = 45;
-    const micOk = globalThis.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
-    scene.innerHTML = `<div class="screen-frame wave-frame"><div class="screen-top"><b>声音记录仪</b><span class="src-seg" role="group" aria-label="声音来源">
-        <button id="source-sim" class="seg-btn" data-source="simulation" aria-pressed="true">模拟推杆</button>
-        <button id="source-teacher" class="seg-btn" data-source="teacher" aria-pressed="false">教师现场</button>
-        ${micOk ? '<button id="source-mic" class="seg-btn" data-source="microphone" aria-pressed="false">本机麦克风</button>' : ''}</span></div>
+    scene.innerHTML = `<div class="screen-frame wave-frame"><div class="screen-top"><b>广场噪声监测器 · 声音记录</b><span class="console-note">仿真数据 · 不用麦克风</span></div>
       <div id="wave-chart" class="wave-chart" tabindex="0" aria-label="声音曲线，可在两个圆点之间点击读数"></div>
       <div class="chart-legend"><span><i class="lg-curve"></i>连续曲线</span><span><i class="lg-dot"></i>每2秒记一个读数（散点）</span><button id="view-toggle" class="mini-btn">只看散点</button><span id="wave-readout" class="readout" aria-live="polite"></span></div></div>`;
     controls.innerHTML = `<div class="console-row">
-      <button id="record" class="rec-btn" aria-label="开始记录10秒"><span class="rec-dot"></span><b id="rec-label">录10秒</b></button>
+      <button id="load-record" class="big-btn">📈 打开监测器记录（10秒）</button>
+      <button id="record" class="rec-btn" aria-label="用推杆自己录10秒（选做）"><span class="rec-dot"></span><b id="rec-label">自己录10秒</b></button>
       <label class="fader ctl" id="knob-row"><span>🔈</span><input id="knob" type="range" min="30" max="90" step="1" value="45" aria-label="音量推杆（模拟声音）"><span>🔊</span><b id="knob-val">45 dB</b></label>
-      <span id="rec-status" class="rec-status" role="status"></span></div><p id="mic-status" class="console-note"></p>`;
-    controls.querySelectorAll('[data-source]').forEach(b => b.onclick = () => this.setSource(b.dataset.source));
-    scene.querySelectorAll('[data-source]').forEach(b => b.onclick = () => this.setSource(b.dataset.source));
+      <span id="rec-status" class="rec-status" role="status"></span></div>`;
+    controls.querySelector('#load-record').onclick = () => this.loadRecord();
     const knob = controls.querySelector('#knob');
     knob.oninput = () => { this.knob = Number(knob.value); controls.querySelector('#knob-val').textContent = knob.value + ' dB'; };
     controls.querySelector('#record').onclick = () => this.recording ? this.stop(false) : this.start();
@@ -120,30 +158,27 @@ export class WaveExperiment extends Base {
     scene.querySelector('#wave-chart').addEventListener('click', e => this.pick(e));
     this.draw();
   }
-  options() { return { source: this.source, recording: this.recording, liveFresh: this.ctx.liveFresh(), lastSpanSmall: this.lastSpanSmall }; }
-  setSource(src) {
+  options() { return { recording: this.recording, lastSpanSmall: this.lastSpanSmall }; }
+  /* 教参：先凭第一感觉判断，再看连续量。直接给一段监测器记录，把时间留给“比较两种图、在散点之间读数”。 */
+  loadRecord() {
     if (this.recording) this.stop(true);
-    this.source = src;
-    this.scene.querySelectorAll('[data-source]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.source === src)));
-    this.controls.querySelector('#knob-row').hidden = src !== 'simulation';
-    const ms = this.controls.querySelector('#mic-status');
-    if (src === 'microphone') { ms.textContent = '正在请求麦克风…'; this.ctx.startMic(msg => ms.textContent = msg); }
-    else { this.ctx.stopMic(); ms.textContent = src === 'teacher' ? (this.ctx.liveFresh() ? '已连接教师现场监测（相对响度，不是分贝）。' : '老师还没开启现场监测，可以先用模拟推杆。') : ''; }
-    this.ctx.watchLive(src === 'teacher');
-    this.ctx.refresh();
+    const pts = [];
+    for (let i = 0; i <= 100; i++) { const x = i / 10; pts.push([round1(x), round1(50 + 12 * Math.sin(x / 1.4) + 6 * Math.sin(x * 1.9 + 1) + (x > 6.3 && x < 7.4 ? 9 * Math.sin((x - 6.3) / 1.1 * Math.PI) : 0))]); }
+    this.points = pts; this.unit = 'dB'; this.marker = null; this.lastSpanSmall = false;
+    const vals = pts.map(p => p[1]), min = Math.min(...vals), max = Math.max(...vals);
+    this.controls.querySelector('#rec-status').textContent = '✓ 已打开监测器记录';
+    this.ctx.say(`这是广场监测器10秒的记录：${pts.length} 个读数，在 ${min}—${max} dB 之间。圆点是每2秒记下的读数。`, 'good');
+    this.ctx.addTrial({ kind: 'trace', source: 'record', samples: pts.length, min, max, unit: 'dB', at: Date.now() }, { lastTrace: { points: pts, unit: 'dB' } });
+    this.draw();
   }
   current() {
-    if (this.source === 'simulation') {
-      this.sim += (this.knob - this.sim) * 0.25; this.phase = (this.phase || 0) + 1;
-      return round1(this.sim + 1.2 * Math.sin(this.phase * 0.9) + 0.6 * Math.sin(this.phase * 2.3));
-    }
-    if (this.source === 'teacher') return this.ctx.liveFresh() ? round1(this.ctx.live().level) : null;
-    return this.ctx.micLevel() === null ? null : round1(this.ctx.micLevel() * 100);
+    this.sim += (this.knob - this.sim) * 0.25; this.phase = (this.phase || 0) + 1;
+    return round1(this.sim + 1.2 * Math.sin(this.phase * 0.9) + 0.6 * Math.sin(this.phase * 2.3));
   }
   start() {
     const first = this.current();
-    if (first === null) { this.controls.querySelector('#rec-status').textContent = this.source === 'teacher' ? '还收不到教师现场数据。' : '麦克风还没有准备好。'; return; }
-    this.recording = true; this.points = []; this.marker = null; this.unit = this.source === 'simulation' ? 'dB' : '相对响度'; this.started = Date.now();
+    if (first === null) return;
+    this.recording = true; this.points = []; this.marker = null; this.unit = 'dB'; this.started = Date.now();
     this.controls.querySelector('#record').classList.add('on'); this.controls.querySelector('#rec-label').textContent = '停止';
     this.ctx.pose('interact');
     this.tick = this.every(() => {
@@ -179,7 +214,7 @@ export class WaveExperiment extends Base {
     if (this.points.length > 1 && (this.view === 'both' || this.recording)) svg += `<path d="${pathOf(this.points, s)}" class="curve"/>`;
     if (!this.recording) svg += dots.map(p => `<circle cx="${s.x(p[0])}" cy="${s.y(p[1])}" r="7" class="dot"><title>${p[0]}秒：${p[1]}</title></circle>`).join('');
     if (this.marker) svg += `<line x1="${s.x(this.marker.t)}" x2="${s.x(this.marker.t)}" y1="${s.pad.t}" y2="${s.height - s.pad.b}" class="marker-line"/><circle cx="${s.x(this.marker.t)}" cy="${s.y(this.marker.value)}" r="8" class="marker"/>`;
-    if (!this.points.length) svg += `<text x="${s.width / 2}" y="${s.height / 2}" text-anchor="middle" class="empty-text">录音后，声音曲线会画在这里</text>`;
+    if (!this.points.length) svg += `<text x="${s.width / 2}" y="${s.height / 2}" text-anchor="middle" class="empty-text">点“打开监测器记录”，声音曲线会画在这里</text>`;
     this.scene.querySelector('#wave-chart').innerHTML = svg + '</svg>';
   }
   pick(e) {
@@ -197,30 +232,37 @@ export class WaveExperiment extends Base {
     this.ctx.say(`读到了：${t} 秒时是 ${value}（在 ${left[0]} 秒和 ${right[0]} 秒两个圆点之间）。这个读数说明什么？到“说清楚”里用它。`, 'good');
     this.ctx.addTrial({ kind: 'between', t, value, leftT: left[0], rightT: right[0], at: Date.now() });
   }
-  destroy() { super.destroy(); this.ctx.stopMic(); this.ctx.watchLive(false); }
+  destroy() { super.destroy(); }
 }
 
 /* ---------- 3 3号楼小明家：窗帘与水壶 ---------- */
 export class LifeExperiment extends Base {
   mount(scene, controls) {
-    this.luxTrace = []; this.session = []; this.temp = 20; this.kettle = 'idle'; this.tempTrace = [[0, 20]];
+    this.luxTrace = []; this.session = []; this.mt = 0;
     scene.innerHTML = `<div class="room">
       <div class="room-card"><div id="curtain-svg" class="room-art"></div><div id="lux-chart" class="room-chart"></div></div>
-      <div class="room-card"><div id="kettle-svg" class="room-art"></div><div id="temp-chart" class="room-chart"></div></div></div>`;
+      <div class="room-card meters-card"><p class="meters-title">看一看：水表、温度计、车速表的读数是怎样变化的？</p><div id="meters-svg" class="room-art"></div>
+      <p class="paper-tip">🧻 动手：拿一张薄纸片，对着它轻轻吹、再用力吹，看纸片怎样晃动。</p></div></div>`;
     controls.innerHTML = `<div class="console-row two">
-      <label class="fader ctl curtain-ctl"><span>窗帘</span><input id="curtain" type="range" min="0" max="100" step="1" value="0" aria-label="窗帘拉上多少"><b id="curtain-val">0%</b></label>
-      <div class="kettle-ctl"><button id="kettle-start" class="big-btn">🔥 开始烧水</button><button id="kettle-read" class="big-btn">🌡 读水温</button><button id="kettle-reset" class="mini-btn">倒掉重烧</button><span id="kettle-status" class="rec-status" role="status"></span></div></div>`;
+      <label class="fader ctl curtain-ctl"><span>窗帘</span><input id="curtain" type="range" min="0" max="100" step="1" value="0" aria-label="窗帘拉上多少"><b id="curtain-val">0%</b></label></div>`;
     this.scene = scene; this.controls = controls;
     const slider = controls.querySelector('#curtain');
     slider.oninput = () => this.curtain(Number(slider.value));
     // 键盘方向键每按一次都会触发 change，所以只重新计时，停手约1秒后再保存整段拉动
     slider.onchange = () => { this.stopTimer(this.idle); this.idle = this.later(() => this.saveCurtain(), 900); };
-    controls.querySelector('#kettle-start').onclick = () => this.heat();
-    controls.querySelector('#kettle-read').onclick = () => this.read();
-    controls.querySelector('#kettle-reset').onclick = () => this.resetKettle();
-    this.curtain(0, true); this.drawKettle();
+    this.curtain(0, true); this.drawMeters();
+    if (!reduced()) this.every(() => { this.mt += 0.15; this.drawMeters(); }, 150);
   }
-  options() { return { kettleRunning: this.kettle === 'heating' }; }
+  /* 水表、温度计、车速表：读数一点点变化（仿真），只供观察，不另设任务。 */
+  drawMeters() {
+    const t = this.mt, temp = round1(24 + 4 * Math.sin(t / 3)), speed = Math.round(38 + 14 * Math.sin(t / 2.2)), water = (1234.5 + t * 0.08).toFixed(2);
+    const h = 90 * (temp - 10) / 30;
+    this.scene.querySelector('#meters-svg').innerHTML = `<svg viewBox="0 0 320 200" class="mini-svg" role="img" aria-label="水表${water}立方米，温度计${temp}摄氏度，车速表${speed}千米每时">
+      <rect width="320" height="200" fill="#e8d9c4"/>
+      <g transform="translate(14 30)"><circle cx="45" cy="60" r="44" fill="#fff" stroke="#6b8794" stroke-width="4"/><rect x="18" y="44" width="54" height="18" rx="3" fill="#173d50"/><text x="45" y="58" text-anchor="middle" font-size="11" fill="#7fe6dc" font-family="monospace">${water}</text><line x1="45" y1="60" x2="${(45 + 26 * Math.cos(t * 2)).toFixed(1)}" y2="${(80 + 10 * Math.sin(t * 2)).toFixed(1)}" stroke="#d9534f" stroke-width="3"/><text x="45" y="125" text-anchor="middle" font-size="13" font-weight="700" fill="#173d50">水表</text></g>
+      <g transform="translate(112 20)"><rect x="12" y="6" width="18" height="110" rx="9" fill="#fff" stroke="#6b8794" stroke-width="2"/><rect x="16" y="${108 - h}" width="10" height="${h}" fill="#e9603b"/><circle cx="21" cy="120" r="13" fill="#e9603b"/><text x="40" y="${112 - h}" font-size="12" font-weight="700" fill="#173d50">${temp}℃</text><text x="21" y="155" text-anchor="middle" font-size="13" font-weight="700" fill="#173d50">温度计</text></g>
+      ${gauge(262, 110, speed / 80, speed + ' km/h', '车速表')}</svg>`;
+  }
   lux(v) { return Math.round(800 - 7.4 * v); }
   curtain(v, initial) {
     const lux = this.lux(v);
@@ -244,41 +286,6 @@ export class LifeExperiment extends Base {
     this.ctx.addTrial({ kind: 'curtain', distinct, min: Math.min(...vals), max: Math.max(...vals), at: Date.now() });
     if (distinct < 8 || Math.max(...vals) - Math.min(...vals) < 300) this.ctx.say('这次拉得太少或太快（读数少于8个）。再慢慢多拉一段。', 'bad');
     else this.ctx.say('已记录：光照从 ' + Math.max(...vals) + ' 到 ' + Math.min(...vals) + ' lux，经过了 ' + distinct + ' 个不同读数。', 'good');
-  }
-  heat() {
-    if (this.kettle === 'heating') return;
-    if (this.kettle === 'done') this.resetKettle();
-    this.kettle = 'heating'; const t0 = Date.now() - (this.elapsed || 0) * 1000;
-    this.controls.querySelector('#kettle-status').textContent = '加热中…'; this.ctx.pose('interact');
-    this.heatTimer = this.every(() => {
-      const t = (Date.now() - t0) / 1000; this.elapsed = t;
-      this.temp = Math.min(100, round1(20 + 80 * (1 - Math.exp(-t / 5)) / (1 - Math.exp(-3))));
-      this.tempTrace.push([round1(t), this.temp]);
-      if (this.temp >= 100) { this.temp = 100; this.kettle = 'done'; this.stopTimer(this.heatTimer); this.controls.querySelector('#kettle-status').textContent = '100 ℃，自动断电'; this.ctx.refresh(); }
-      this.drawKettle();
-    }, 150);
-    this.ctx.refresh();
-  }
-  read() {
-    if (this.kettle === 'idle') { this.controls.querySelector('#kettle-status').textContent = '先点“开始烧水”'; return; }
-    const r = this.temp;
-    this.controls.querySelector('#kettle-status').textContent = '读数 ' + r + ' ℃ ✓';
-    this.ctx.addTrial({ kind: 'kettle', reading: r, at: Date.now() });
-    if (r >= 100) this.ctx.say('已经到100 ℃了。倒掉重烧，在半路读一个中间的水温。', 'bad');
-    else this.ctx.say('已记录：此刻水温 ' + r + ' ℃。', 'good');
-  }
-  resetKettle() { this.stopTimer(this.heatTimer); this.kettle = 'idle'; this.temp = 20; this.elapsed = 0; this.tempTrace = [[0, 20]]; this.controls.querySelector('#kettle-status').textContent = ''; this.drawKettle(); this.ctx.refresh(); }
-  drawKettle() {
-    const h = 120 * this.temp / 110, hot = this.kettle === 'heating';
-    const steam = hot && this.temp > 50 ? `<g class="steam" fill="none" stroke="#fff" stroke-width="4" opacity=".7"><path d="M95 40 q-10 -12 0 -24"/><path d="M115 44 q-10 -14 0 -28"/></g>` : '';
-    this.scene.querySelector('#kettle-svg').innerHTML = `<svg viewBox="0 0 320 200" class="mini-svg" role="img" aria-label="水温${this.temp}摄氏度">
-      <rect width="320" height="200" fill="#e8d9c4"/><rect y="168" width="320" height="32" fill="#a77b56"/>${steam}
-      <path d="M50 60 h110 l10 108 h-130 z" fill="#d6e4ea" stroke="#6b8794" stroke-width="3"/><path d="M160 80 q44 0 32 44" fill="none" stroke="#6b8794" stroke-width="7"/><rect x="70" y="48" width="70" height="14" rx="6" fill="#6b8794"/>
-      <circle cx="105" cy="128" r="10" fill="${hot ? '#e9603b' : '#9fb3bd'}"/>
-      <rect x="236" y="26" width="20" height="134" rx="10" fill="#fff" stroke="#6b8794" stroke-width="2"/><rect x="241" y="${152 - h}" width="10" height="${h}" fill="#e9603b"/><circle cx="246" cy="164" r="13" fill="#e9603b"/>
-      <text x="264" y="${156 - h}" font-size="14" font-weight="700" fill="#173d50">${this.temp.toFixed(1)}℃</text></svg>`;
-    const s = makeScale({ width: 320, height: 110, pad: { l: 40, r: 8, t: 12, b: 16 }, xMin: 0, xMax: 15, yMin: 0, yMax: 100 });
-    this.scene.querySelector('#temp-chart').innerHTML = svgOpen(s, '水温变化曲线', 'mini') + axes(s, { yTicks: [0, 50, 100], yLabel: '水温（℃）' }) + `<line x1="${s.pad.l}" x2="${s.width - s.pad.r}" y1="${s.y(100)}" y2="${s.y(100)}" class="threshold-line"/><path d="${pathOf(this.tempTrace, s)}" class="curve warm"/></svg>`;
   }
 }
 function gauge(cx, cy, ratio, label, title) {
@@ -361,106 +368,80 @@ export class ThresholdExperiment extends Base {
   }
 }
 
-/* ---------- 5 屋顶种植园：自己设定阈值 ---------- */
+/* ---------- 5 教室噪声监测器（教材“拓展与提升”）：参考标准与同学能接受的音量，自己定阈值 ---------- */
 export class DesignExperiment extends Base {
   mount(scene, controls) {
     const d = this.ctx.record().design || null;
-    this.data = d?.data || null; this.direction = d?.direction || null; this.threshold = Number.isFinite(d?.threshold) ? d.threshold : 50; this.thresholdSet = !!d;
-    this.running = false; this.result = null; this.revealed = 0;
-    scene.innerHTML = `<div class="garden"><div id="garden-art" class="garden-art"></div><div class="screen-frame garden-screen"><div id="garden-chart"></div><div id="garden-reading"></div><div id="garden-result" class="garden-result" role="status"></div></div></div>`;
-    controls.innerHTML = `<div class="console-row design">
-      <div id="g-data" class="pick-group" role="group" aria-label="①采集什么数据"><span class="pick-title">① 传感器测</span>${Object.entries(R().designData).map(([k, v]) => `<button id="g-data-${k}" data-gdata="${k}" class="pick" aria-pressed="false">${{ moisture: '💧', light: '☀️', temp: '🌡' }[k]} ${v.label}</button>`).join('')}</div>
-      <div id="g-dir" class="pick-group" role="group" aria-label="②什么时候开水泵"><span class="pick-title">② 开水泵</span><button id="g-dir-below" data-gdir="below" class="pick" aria-pressed="false">⬇ 降到阈值时</button><button id="g-dir-above" data-gdir="above" class="pick" aria-pressed="false">⬆ 升到阈值时</button></div>
-      <label class="fader ctl g-th-ctl" id="g-th-row"><span>③ 阈值</span><input id="g-threshold" type="range" aria-label="阈值"><b id="g-th-val"></b></label>
-      <button id="run-garden" class="big-btn">▶ 运行4天</button></div><div id="g-runs" class="run-table console-note"></div>`;
+    this.th = Number.isInteger(d?.threshold) ? d.threshold : 50; this.thresholdSet = !!d; this.running = false; this.cursor = null; this.shown = []; this.last = null;
+    this.series = R().classroomNoise();
+    const std = R().STANDARDS.map(s => `<tr><td>${s.place}</td><td>${s.day}</td><td>${s.night}</td></tr>`).join('');
+    scene.innerHTML = `<div class="class-monitor"><aside class="basis-card"><h3>📚 查一查：噪声标准</h3><table class="std-table"><thead><tr><th>区域</th><th>昼间</th><th>夜间</th></tr></thead><tbody>${std}</tbody></table><p class="std-src">GB 3096—2008《声环境质量标准》户外限值（dB）</p>
+      <h3>🙋 问一问：同学们能接受的音量</h3><p class="vote-line">全班投票：大部分同学能接受课间音量不超过 <b>${R().ACCEPT} dB</b></p></aside>
+      <div class="screen-frame control-room"><div class="screen-top"><b>六（1）班 课间10分钟 噪声回放</b><span class="monitor-strip"><span class="alarm-lamp" id="c-lamp" aria-hidden="true"></span><b id="c-now">待运行</b></span></div>
+      <div id="class-chart" class="night-chart"></div><ol id="c-log" class="alarm-log" aria-label="提示记录"></ol></div></div>`;
+    controls.innerHTML = `<div class="console-row">
+      <div id="c-basis" class="pick-group" role="group" aria-label="设定阈值的依据"><span class="pick-title">依据</span><button id="c-std" class="pick" data-th="55">参考标准 55 dB</button><button id="c-acc" class="pick" data-th="${R().ACCEPT}">同学能接受 ${R().ACCEPT} dB</button></div>
+      <label class="fader ctl th-ctl"><span>阈值</span><input id="c-threshold" type="range" min="40" max="90" step="1" value="${this.th}" aria-label="教室噪声监测器的阈值"><b id="c-th-val">${this.th} dB</b></label>
+      <button id="run-class" class="big-btn">▶ 运行课间10分钟</button></div><div id="c-runs" class="run-table console-note"></div>`;
     this.scene = scene; this.controls = controls;
-    controls.querySelectorAll('[data-gdata]').forEach(b => b.onclick = () => { this.data = b.dataset.gdata; const r = R().designData[this.data]; this.threshold = Math.round((r.min + r.max) / 2); this.thresholdSet = false; this.sync(); });
-    controls.querySelectorAll('[data-gdir]').forEach(b => b.onclick = () => { this.direction = b.dataset.gdir; this.sync(true); });
-    const th = controls.querySelector('#g-threshold');
-    th.oninput = () => { this.threshold = Number(th.value); this.thresholdSet = true; this.sync(true); };
-    controls.querySelector('#run-garden').onclick = () => this.run();
-    this.sync(); this.runs();
+    controls.querySelectorAll('[data-th]').forEach(b => b.onclick = () => this.setTh(Number(b.dataset.th)));
+    const sl = controls.querySelector('#c-threshold'); sl.oninput = () => this.setTh(Number(sl.value));
+    controls.querySelector('#run-class').onclick = () => this.run();
+    this.draw(); this.runs();
   }
-  key(t) { return t.data + '|' + t.direction + '|' + t.threshold; }
-  options() {
-    const ran = (this.ctx.record().trials || []).some(t => this.data && this.key(t) === this.key(this.settings()));
-    return { running: this.running, data: this.data, direction: this.direction, thresholdSet: this.thresholdSet, alreadyRun: ran };
-  }
-  sync(keepSlider) {
+  setTh(v) {
     if (this.running) { this.stopTimer(this.timer); this.running = false; }
-    const info = this.data && R().designData[this.data], c = this.controls;
-    c.querySelectorAll('[data-gdata]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gdata === this.data)));
-    c.querySelectorAll('[data-gdir]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gdir === this.direction)));
-    c.querySelector('#g-dir').hidden = !this.data;
-    c.querySelector('#g-th-row').hidden = !this.data || !this.direction;
-    c.querySelector('#run-garden').hidden = !this.data || !this.direction;
-    const th = c.querySelector('#g-threshold');
-    if (info && !keepSlider) { th.min = info.min; th.max = info.max; th.step = this.data === 'light' ? 10 : 1; th.value = this.threshold; }
-    c.querySelector('#g-th-val').textContent = info ? this.threshold + ' ' + info.unit : '';
-    this.result = null; this.draw(); this.ctx.refresh();
+    this.th = v; this.thresholdSet = true; this.shown = []; this.cursor = null; this.last = null;
+    this.controls.querySelector('#c-threshold').value = v; this.controls.querySelector('#c-th-val').textContent = v + ' dB';
+    this.scene.querySelector('#c-now').textContent = '阈值 ' + v + ' dB · 待运行';
+    this.draw(); this.ctx.refresh();
   }
-  settings() { return { data: this.data, direction: this.direction, threshold: this.threshold }; }
+  options() { const ran = (this.ctx.record().trials || []).some(t => t.threshold === this.th); return { running: this.running, thresholdSet: this.thresholdSet, alreadyRun: ran }; }
+  scale() { return makeScale({ width: 640, height: 240, xMin: 0, xMax: 60, yMin: 40, yMax: 85 }); }
+  draw() {
+    const s = this.scale(), pts = this.series.map((v, i) => [i, v]), upto = this.cursor === null ? pts : pts.slice(0, this.cursor + 1);
+    let svg = svgOpen(s, '课间10分钟教室噪声曲线与阈值线', 'dark') + axes(s, { xTicks: [[0, '0分'], [18, '3分'], [36, '6分'], [54, '9分']], yTicks: [40, 50, 60, 70, 80], yLabel: '音量（dB，仿真）', xLabel: '课间时间' });
+    for (const n of R().NOISY) svg += `<rect x="${s.x(n.start - 0.5)}" y="${s.pad.t}" width="${s.x(n.end + 0.5) - s.x(n.start - 0.5)}" height="${s.ih}" class="noisy-band"/><text x="${s.x((n.start + n.end) / 2)}" y="${s.pad.t + 14}" text-anchor="middle" class="band-label">${n.label}</text>`;
+    svg += `<path d="${pathOf(pts, s)}" class="curve ghost"/>`;
+    if (upto.length > 1) svg += `<path d="${pathOf(upto, s)}" class="curve"/>`;
+    if (this.thresholdSet) svg += `<line x1="${s.pad.l}" x2="${s.width - s.pad.r}" y1="${s.y(this.th)}" y2="${s.y(this.th)}" class="threshold-line thick"/><text x="${s.width - s.pad.r - 4}" y="${s.y(this.th) - 6}" text-anchor="end" class="threshold-label light">阈值 ${this.th} dB</text>`;
+    for (const e of this.shown) svg += `<circle cx="${s.x(e.start)}" cy="${s.y(this.series[e.start])}" r="7" class="alarm-point"/>`;
+    if (this.cursor !== null) svg += `<line x1="${s.x(this.cursor)}" x2="${s.x(this.cursor)}" y1="${s.pad.t}" y2="${s.height - s.pad.b}" class="marker-line"/>`;
+    this.scene.querySelector('#class-chart').innerHTML = svg + '</svg>';
+  }
   run() {
-    if (!this.data || !this.direction) return;
-    const sim = R().simulateGarden(this.settings());
-    this.result = sim; this.running = true; this.revealed = 0; this.ctx.refresh(); this.ctx.pose('interact');
+    if (!this.thresholdSet) return;
+    if (this.running) this.stopTimer(this.timer);
+    const th = this.th, sim = R().simulateClassroom(th), lamp = this.scene.querySelector('#c-lamp'), now = this.scene.querySelector('#c-now');
+    this.running = true; this.shown = []; this.scene.querySelector('#c-log').innerHTML = ''; this.ctx.refresh(); this.ctx.pose('interact');
     const finish = () => {
-      this.running = false; this.revealed = sim.moisture.length; this.draw();
-      const t = { ...this.settings(), fit: sim.fit, min: sim.min, max: sim.max, waterings: sim.waterings, at: Date.now() };
-      this.ctx.say(sim.fit ? `成功！4天里湿度在 ${sim.min}%—${sim.max}% 之间，蔬菜长得好。` : `湿度到过 ${sim.min < 30 ? sim.min + '%（太干）' : sim.max + '%（太湿）'}，方案还要调整。`, sim.fit ? 'good' : 'bad');
-      this.ctx.addTrial(t, { design: this.settings() });
+      this.running = false; this.cursor = null; this.shown = sim.episodes; lamp.classList.remove('on');
+      const isNoisy = e => R().NOISY.some(n => e.start <= n.end + 1 && e.end >= n.start - 1 && e.start >= n.start - 1 && e.end <= n.end + 1);
+      now.textContent = `阈值 ${th} dB：提示 ${sim.alarms} 次`;
+      this.scene.querySelector('#c-log').innerHTML = sim.episodes.map(e => `<li class="${isNoisy(e) ? '' : 'false-alarm'}">${e.startLabel}—${e.endLabel} 超过阈值 → 提示${isNoisy(e) ? '（喧哗）' : '（正常聊天时也提示了）'}</li>`).join('') || '<li>整个课间都没有超过阈值：喧哗时也没提示。</li>';
+      this.draw();
+      const msg = sim.fit ? `阈值 ${th} dB：只在两段喧哗时提示，正常聊天不打扰。` : sim.falseAlarms ? `阈值 ${th} dB：正常聊天时也提示了 ${sim.falseAlarms} 次，太敏感了。` : `阈值 ${th} dB：有 ${sim.missed} 段喧哗没有提示，太迟钝了。`;
+      this.ctx.say(msg, sim.fit ? 'good' : 'bad');
+      this.ctx.addTrial({ threshold: th, alarms: sim.alarms, falseAlarms: sim.falseAlarms, caught: sim.caught, overSec: sim.overSec, fit: sim.fit, at: Date.now() }, { design: { threshold: th } });
       this.runs();
     };
     if (reduced()) { finish(); return; }
-    this.timer = this.every(() => { this.revealed = Math.min(sim.moisture.length, this.revealed + 6); this.draw(); if (this.revealed >= sim.moisture.length) { this.stopTimer(this.timer); finish(); } }, 80);
-  }
-  draw() {
-    const rules = R(), info = this.data && rules.designData[this.data];
-    const s = makeScale({ width: 640, height: 220, xMin: 0, xMax: 96, yMin: 0, yMax: 100 });
-    let svg = svgOpen(s, '4天土壤湿度曲线，绿色带为适宜范围', 'dark') + axes(s, { xTicks: [[0, '第1天'], [24, '第2天'], [48, '第3天'], [72, '第4天'], [96, '']], yTicks: [0, 30, 50, 70, 100], yLabel: '土壤湿度（%，仿真）', xLabel: '时间' });
-    svg += `<rect x="${s.pad.l}" y="${s.y(70)}" width="${s.iw}" height="${s.y(30) - s.y(70)}" class="ok-band"/><text x="${s.pad.l + 6}" y="${s.y(70) + 15}" class="band-label">适宜 30%—70%</text>`;
-    if (this.data === 'moisture' && this.direction) svg += `<line x1="${s.pad.l}" x2="${s.width - s.pad.r}" y1="${s.y(this.threshold)}" y2="${s.y(this.threshold)}" class="threshold-line"/><text x="${s.width - s.pad.r - 4}" y="${s.y(this.threshold) - 5}" text-anchor="end" class="threshold-label">阈值 ${this.threshold}%</text>`;
-    let now = 56;
-    if (this.result) {
-      const n = this.revealed, pts = this.result.moisture.slice(0, n).map((v, i) => [i / 2, v]);
-      if (pts.length > 1) svg += `<path d="${pathOf(pts, s)}" class="curve"/>`;
-      this.result.pumpOn.slice(0, n).forEach((on, i) => { if (on) svg += `<rect x="${s.x(i / 2) - 1.5}" y="${s.height - s.pad.b - 9}" width="3" height="9" class="pump-tick"/>`; });
-      now = this.result.moisture[Math.max(0, n - 1)];
-    } else svg += `<text x="${s.width / 2}" y="${s.height / 2 + 30}" text-anchor="middle" class="empty-text">${this.data && this.direction ? '设好阈值后，运行4天' : '在下面选好传感器和开泵条件'}</text>`;
-    this.scene.querySelector('#garden-chart').innerHTML = svg + '</svg>';
-    const pumping = this.running && this.result?.pumpOn[this.revealed - 1];
-    this.scene.querySelector('#garden-art').innerHTML = gardenSvg(now, pumping);
-    let reading = '';
-    if (info && this.data !== 'moisture') {
-      const r = makeScale({ width: 640, height: 90, pad: { l: 52, r: 18, t: 14, b: 18 }, xMin: 0, xMax: 96, yMin: info.min, yMax: info.max });
-      const series = Array.from({ length: 192 }, (_, i) => [i / 2, this.data === 'light' ? rules.lightAt(i) : rules.tempAt(i)]);
-      reading = svgOpen(r, info.label + '曲线', 'dark mini') + axes(r, { yTicks: [info.min, info.max], yLabel: info.label + '（' + info.unit + '）' }) + `<path d="${pathOf(series, r)}" class="curve alt"/>${this.direction ? `<line x1="${r.pad.l}" x2="${r.width - r.pad.r}" y1="${r.y(this.threshold)}" y2="${r.y(this.threshold)}" class="threshold-line"/>` : ''}</svg>`;
-    }
-    this.scene.querySelector('#garden-reading').innerHTML = reading;
-    const box = this.scene.querySelector('#garden-result');
-    if (this.result && !this.running) {
-      const sim = this.result;
-      const why = sim.fit ? '湿度一直留在绿色带里。' : sim.min < 30 ? '有时低于30%，蔬菜缺水。' : '有时高于70%，土太湿。';
-      const extra = this.data !== 'moisture' ? ' 这次水泵是按' + info.label + '开关的：看看湿度曲线有没有跟着植物的需要变化？' : '';
-      box.className = 'garden-result ' + (sim.fit ? 'good' : 'bad');
-      box.textContent = `最低 ${sim.min}%，最高 ${sim.max}%，浇水 ${sim.waterings} 次。${why}${extra}`;
-    } else { box.className = 'garden-result'; box.textContent = this.running ? '运行中…（蓝色短线 = 水泵在浇水）' : ''; }
+    this.cursor = 0;
+    this.timer = this.every(() => {
+      this.cursor = Math.min(60, this.cursor + 1);
+      const v = this.series[this.cursor], hit = sim.episodes.filter(e => e.start <= this.cursor && !this.shown.includes(e));
+      if (hit.length) { this.shown.push(...hit); this.ctx.sfx?.('alarm'); }
+      lamp.classList.toggle('on', v > th);
+      now.textContent = `${R().secLabel(this.cursor)} · ${v} dB ${v > th ? '> ' + th + ' 提示！' : '≤ ' + th}`;
+      this.draw();
+      if (this.cursor >= 60) { this.stopTimer(this.timer); finish(); }
+    }, 70);
   }
   runs() {
-    const ts = (this.ctx.record().trials || []).filter(t => R().designData[t.data]);
-    const lab = t => `${R().designData[t.data].label}${t.direction === 'below' ? '≤' : '≥'}${t.threshold}${R().designData[t.data].unit}`;
-    this.controls.querySelector('#g-runs').innerHTML = ts.length ? '已试：' + ts.slice(-5).map(t => `<span class="run-pill ${t.fit ? 'std' : 'bad'}">${escape(lab(t))} ${t.fit ? '✓' : '✗'}</span>`).join('') : '';
+    const ts = (this.ctx.record().trials || []).filter(t => Number.isInteger(t.threshold));
+    const uniq = [...new Map(ts.map(t => [t.threshold, t])).values()];
+    this.controls.querySelector('#c-runs').innerHTML = uniq.length ? '已试：' + uniq.slice(-5).map(t => `<span class="run-pill ${t.fit ? 'std' : 'bad'}">${t.threshold} dB → ${t.alarms} 次 ${t.fit ? '✓' : '✗'}</span>`).join('') : '';
   }
-}
-function gardenSvg(m, pumping) {
-  const dry = m < 30, wet = m > 70, leaf = dry ? '#a7b55a' : wet ? '#4f8f6a' : '#4fbf6a', droop = dry ? 18 : 0;
-  return `<svg viewBox="0 0 220 260" class="mini-svg" role="img" aria-label="种植园，土壤湿度约${Math.round(m)}%">
-    ${nightSky(220, 260, 21)}<rect y="190" width="220" height="70" fill="#5a3b28"/><rect y="190" width="220" height="${Math.max(4, 70 * m / 100)}" fill="#3b2a1f" opacity=".8"/>
-    <g transform="translate(110 192)"><rect x="-3" y="-80" width="6" height="80" fill="#3f8a4f"/>
-    <ellipse cx="-26" cy="${-56 + droop}" rx="26" ry="11" fill="${leaf}" transform="rotate(${-20 + droop} -26 ${-56 + droop})"/><ellipse cx="26" cy="${-66 + droop}" rx="26" ry="11" fill="${leaf}" transform="rotate(${20 - droop} 26 ${-66 + droop})"/><ellipse cx="0" cy="-90" rx="15" ry="20" fill="${leaf}"/></g>
-    <rect x="160" y="205" width="10" height="40" fill="#9fb3bd"/><circle cx="165" cy="203" r="7" fill="#5fd3ff"/><text x="150" y="252" font-size="11" fill="#fff">传感器</text>
-    <g transform="translate(20 70)"><rect width="40" height="30" rx="6" fill="#2b8fd0"/><text x="5" y="20" font-size="12" fill="#fff">水泵</text>${pumping ? '<g fill="#5fd3ff"><circle cx="60" cy="60" r="5"/><circle cx="72" cy="80" r="5"/><circle cx="64" cy="100" r="5"/></g>' : ''}</g>
-    <text x="110" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">湿度 ${Math.round(m)}%</text></svg>`;
 }
 
 export const experimentClasses = { flow: FlowExperiment, wave: WaveExperiment, life: LifeExperiment, threshold: ThresholdExperiment, design: DesignExperiment };

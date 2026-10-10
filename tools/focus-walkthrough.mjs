@@ -1,7 +1,7 @@
-/* 沉浸版完整走查：机器人“学生”只点亮着的主要操作（选项组里按需选一个），每一步记录焦点。 */
+/* RPG 闯关版完整走查（校园地图 → NPC 对话进站）：机器人“学生”只点亮着的主要操作（选项组里按需选一个），每一步记录焦点。 */
 /*
  * 用法（先启动课堂服务，最好用临时数据库和虚构名单）：
- *   PLAYWRIGHT=/path/to/node_modules/playwright/index.mjs BASE=http://127.0.0.1:8796 W=1366 H=768 SHOTS=docs/screenshots/沉浸版 node tools/focus-walkthrough.mjs
+ *   PLAYWRIGHT=/path/to/node_modules/playwright/index.mjs BASE=http://127.0.0.1:8796 W=1366 H=768 SHOTS=docs/screenshots/rpg闯关版 node tools/focus-walkthrough.mjs
  *   MODE=demo 走 /demo（不登录、不写数据）；REDUCED=1 模拟“减少动态效果”；NAME=手动填写的姓名（填名单里已有的名字会触发同名确认）。
  *   GUESS=1 “乱点的学生”：只跟着发光的操作做实验，所有判断都随机选，错了再随机改，直到通过；最后读取服务端证据摘要。
  * 每一步检查：页面上恰好一个发光的主要操作（.cta），它在视口内，且中心没有被其他元素挡住。结果写入 OUTDIR/focus-<尺寸>.json。
@@ -19,7 +19,7 @@ const TAG = process.env.TAG || `${W}x${H}`;
 const MOBILE = W < 700;
 const REDUCED_MS = process.env.REDUCED ? 150 : 2600;
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, isMobile: MOBILE, hasTouch: MOBILE, reducedMotion: process.env.REDUCED ? 'reduce' : 'no-preference' });
+const ctx = await browser.newContext({ bypassCSP: true, viewport: { width: W, height: H }, deviceScaleFactor: 1, isMobile: MOBILE, hasTouch: MOBILE, reducedMotion: process.env.REDUCED ? 'reduce' : 'no-preference' });
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror ' + e.message));
@@ -66,8 +66,19 @@ if (MODE === 'student') {
   await page.waitForSelector('#same-name:not([hidden]) button'); await focus('登录：同名确认'); await shot('02-登录-同名确认');
   await page.locator('.cta button').first().click();
 } else { await page.goto(BASE + '/demo'); }
-await page.waitForSelector('#map:not([hidden])'); await page.waitForTimeout(500);
-await focus('地图：第1站'); await shot('03-小区地图');
+await page.waitForSelector('#map:not([hidden])');
+await page.waitForSelector('.rpg-canvas');
+await page.waitForTimeout(800);
+await shot('03-校园地图总览');
+// 走近第1站 NPC，截「靠近可对话」与「下一站未解锁」
+await page.evaluate(() => window.__enterPlace && null);
+await page.waitForFunction(() => typeof window.__enterPlace === 'function');
+await page.keyboard.down('ArrowLeft'); await page.waitForTimeout(900); await page.keyboard.up('ArrowLeft');
+await page.keyboard.down('ArrowUp'); await page.waitForTimeout(1200); await page.keyboard.up('ArrowUp');
+await page.waitForTimeout(400);
+await shot('03b-走近监测站NPC');
+const talkVisible = await page.locator('#rpg-talk:not([hidden])').count();
+if (talkVisible) await shot('03c-对话按钮已出现');
 const G = await goals();
 
 const STOP = ['check', 'next', 'celebrate-next', 'back-to-experiment', 'reflect-saw', 'reflect-so', 'reflect-done'];
@@ -117,6 +128,8 @@ async function finishStage(stage, shotName, wrong) {
       await focus(`${stage} 标红后修订`);
       if (round === 0 && shotName) {
         await shot(shotName + '-标红修订');
+        await page.waitForSelector('#retry-guide:not([hidden])', { timeout: 3000 }).catch(() => {});
+        if (stage === 'flow') await shot('两星-02-二刷出现引导');
         await page.click('#help'); await page.waitForTimeout(300); await shot(shotName + '-想法提示'); await page.mouse.click(5, H - 5);
       }
       continue;
@@ -126,7 +139,16 @@ async function finishStage(stage, shotName, wrong) {
   await reflect(stage, shotName);
   await page.waitForSelector('#celebrate:not([hidden])');
   await focus(`${stage} 通关庆祝`); if (shotName) await shot(shotName + '-通关');
-  await cta().click(); await page.waitForSelector('#map:not([hidden])'); await page.waitForTimeout(400);
+  if (stage === 'flow') await shot('两星-03-满两星可回地图');
+  await cta().click(); await page.waitForSelector('#map:not([hidden])');
+  await page.waitForSelector('.rpg-canvas'); await page.waitForTimeout(600);
+  if (stage === 'flow') {
+    // 走向数据展示墙（wave），应显示未解锁
+    await page.keyboard.down('ArrowRight'); await page.waitForTimeout(1600); await page.keyboard.up('ArrowRight');
+    await page.keyboard.down('ArrowUp'); await page.waitForTimeout(900); await page.keyboard.up('ArrowUp');
+    await page.waitForTimeout(400);
+    await shot('06b-下一站未解锁');
+  }
   return 'ok';
 }
 async function predict(stage, value) {
@@ -135,14 +157,37 @@ async function predict(stage, value) {
   await chooseIn(`${stage} 预测`, `[data-predict="${value}"]`); await page.waitForTimeout(1000);
 }
 async function enterStage(stage, n) {
-  await clickCta(`地图：前往第${n}站`);
+  await page.waitForSelector('#map:not([hidden])');
+  await page.waitForFunction(() => typeof window.__enterPlace === 'function');
+  // 先截一次「下一站锁定」：若还有后续站，尝试对话锁定的 NPC（应灰显）
+  if (n === 1) {
+    await page.evaluate(() => {
+      const talk = document.querySelector('#rpg-talk');
+      // 不强制；走查截图已在登录后拍过总览
+    });
+  }
+  await page.evaluate(id => window.__enterPlace(id), stage);
   await page.waitForSelector('#level:not([hidden])'); await page.waitForTimeout(900);
   await focus(`${stage} 想一想`);
 }
 
 /* ---------- 第1站 广场监测器 ---------- */
 await enterStage('flow', 1); await shot('04-第1站-想一想');
+await page.waitForSelector('#to-map');
+await shot('两星-01-未满两星地图锁定');
 await predict('flow', G.flow.prediction);
+/* 教参：回顾IPO后，先把噪声监测系统的工作过程示意图画出来（先放错一次，看反馈） */
+async function placePart(part, slot) { await chooseIn(`flow 示意图：选${part}`, `[data-part="${part}"]`); await chooseIn(`flow 示意图：放到${slot}`, `[data-slot="${slot}"]`); }
+await shot('04b-第1站-示意图待画');
+if (GUESS) { const order = ['collect', 'process', 'output'].sort(() => rnd() - .5); for (const [i, s] of ['s1', 's2', 's3'].entries()) await placePart(order[i], s); }
+else { await placePart('collect', 's1'); await placePart('output', 's2'); await placePart('process', 's3'); }
+await page.waitForTimeout(400); await shot('04c-第1站-示意图放错反馈');
+for (let guard = 0; guard < 6; guard++) {
+  if (await page.evaluate(() => !!document.querySelector('#src-quiet'))) break;
+  const need = await page.evaluate(() => { const ans = window.LessonRules.schematicAnswer; const filled = [...document.querySelectorAll('[data-slot]')].filter(b => b.classList.contains('filled')).map(b => b.dataset.slot); const s = Object.keys(ans).find(k => !filled.includes(k)); return [ans[s], s]; });
+  await placePart(need[0], need[1]);
+}
+await page.waitForTimeout(400); await shot('04d-第1站-示意图完成');
 await clickCta('flow 实验1'); await page.waitForTimeout(1700);
 await clickCta('flow 实验2'); await page.waitForTimeout(1700); await shot('05-第1站-广场监测器');
 await finishStage('flow', '06-第1站', { input: { value: 'collector' }, transfer: { value: 'devices' } });
@@ -150,10 +195,8 @@ await finishStage('flow', '06-第1站', { input: { value: 'collector' }, transfe
 /* ---------- 第2站 声音记录亭 ---------- */
 await enterStage('wave', 2);
 await predict('wave', 'scatter');
-await clickCta('wave 开始录音');
-await waitCta('.fader'); await focus('wave 录音中：拖推杆');
-for (const v of [40, 55, 70, 85, 75, 60, 45, 35, 50, 70, 88, 80, 60, 40, 32, 50, 66, 80, 70, 55, 42, 36, 50, 64]) { await page.locator('#knob').fill(String(v)); await page.waitForTimeout(400); }
-await waitCta('#wave-chart', 15000); await focus('wave 在两个圆点之间点'); await shot('07-第2站-录好曲线');
+await clickCta('wave 打开监测器记录');
+await waitCta('#wave-chart', 15000); await focus('wave 在两个圆点之间点'); await shot('07-第2站-监测器记录');
 { const box = await page.locator('#wave-chart svg').boundingBox(); const s = { l: 52, r: 18, w: 640 }; const t = 3.1; const x = box.x + (s.l + t / 10 * (s.w - s.l - s.r)) / s.w * box.width; await page.mouse.click(x, box.y + box.height * 0.5); }
 await page.waitForTimeout(400); await shot('08-第2站-两点之间读数');
 await finishStage('wave', '', {});
@@ -163,9 +206,7 @@ await enterStage('life', 3);
 await predict('life', G.life.prediction);
 await focus('life 拉窗帘');
 for (let v = 5; v <= 100; v += 5) { await page.locator('#curtain').fill(String(v)); await page.waitForTimeout(60); }
-await page.waitForTimeout(1300);
-await clickCta('life 开始烧水'); await waitCta('#kettle-read'); await page.waitForTimeout(1300);
-await focus('life 读水温'); await shot('09-第3站-窗帘与水壶'); await cta().click(); await page.waitForTimeout(300);
+await page.waitForTimeout(1300); await shot('09-第3站-窗帘与仪表');
 await finishStage('life', '10-第3站', { lamp: { value: 'c' }, compare: { value: 'differ' } });
 
 /* ---------- 第4站 物业控制室 ---------- */
@@ -177,36 +218,32 @@ await clickCta('threshold 45运行'); await page.waitForTimeout(600); await shot
 await waitCta('#go-explain', 30000); await shot('12-第4站-两次阈值对比');
 await finishStage('threshold', '13-第4站', { 'case:fridge': { value: '6℃' } });
 
-/* ---------- 第5站 屋顶种植园 ---------- */
-await enterStage('design', 5);
-await predict('design', 'mid');
+/* ---------- 第5站 教室噪声监测器（教材“拓展与提升”） ---------- */
+await enterStage('design', 5); await shot('14a-第5站-想一想');
+await predict('design', 'standard');
 if (GUESS) {
-  // 乱试：随机选数据、方向和阈值，直到碰巧有一次合适并比较过两种设置（只跟着发光的操作走，不看提示）
   let runs = 0;
   for (; runs < 200; runs++) {
     if (await page.evaluate(() => document.querySelector('.cta')?.id === 'go-explain')) break;
-    const data = ['moisture', 'light', 'temp'][Math.floor(rnd() * 3)], dir = rnd() < 0.5 ? 'below' : 'above';
-    await page.click('#g-data-' + data); await page.waitForTimeout(80); await page.click('#g-dir-' + dir); await page.waitForTimeout(80);
-    const [mn, mx, st] = await page.evaluate(() => { const e = document.querySelector('#g-threshold'); return [Number(e.min), Number(e.max), Number(e.step) || 1]; });
-    await page.locator('#g-threshold').fill(String(mn + Math.round(rnd() * (mx - mn) / st) * st)); await page.waitForTimeout(80);
-    await page.click('#run-garden'); await page.waitForTimeout(REDUCED_MS);
+    await page.locator('#c-threshold').fill(String(40 + Math.floor(rnd() * 51))); await page.waitForTimeout(80);
+    await page.click('#run-class'); await page.waitForTimeout(REDUCED_MS + 2400);
   }
   checks.designRuns = runs + 1;
 } else {
-await chooseIn('design ①选数据', '#g-data-moisture');
-await chooseIn('design ②选方向', '#g-dir-below');
-await focus('design ③设阈值'); await page.locator('#g-threshold').fill('60'); await page.waitForTimeout(200);
-await clickCta('design 运行60%'); await waitCta('.fader', 30000); await shot('14-第5站-阈值60不合适');
-await focus('design 调整阈值'); await page.locator('#g-threshold').fill('35'); await page.waitForTimeout(200);
-await clickCta('design 运行35%'); await waitCta('#go-explain', 30000); await shot('15-第5站-阈值35合适');
+await chooseIn('design 依据：参考标准55', '#c-std');
+await clickCta('design 运行55'); await waitCta('.fader', 30000); await shot('14-第5站-照搬55误报');
+await focus('design 调整阈值'); await page.locator('#c-threshold').fill(String(G.design && 65)); await page.waitForTimeout(200);
+await clickCta('design 运行65'); await waitCta('#go-explain', 30000); await shot('15-第5站-65只在喧哗时提示');
 }
-await finishStage('design', '16-第5站', {});
-await focus('地图：巡查报告站'); await shot('17-五站完成地图');
+await finishStage('design', '16-第5站', { evidence: { value: 'standard' } });
+await page.waitForSelector('.rpg-canvas'); await page.waitForTimeout(500);
+await focus('地图：出门条', { allowNone: true }); await shot('17-五站完成地图');
 
 /* ---------- 20题考核 ---------- */
 if (MODE === 'student') {
-  await clickCta('地图：前往巡查报告站'); await page.waitForSelector('#end-page:not([hidden])'); await page.waitForTimeout(800);
-  await focus('报告站：开始考核'); await shot('18-巡查报告站');
+  await page.evaluate(() => window.__enterPlace('quiz'));
+  await page.waitForSelector('#end-page:not([hidden])'); await page.waitForTimeout(800);
+  await focus('出门条：开始考核'); await shot('18-出门条考核');
   await cta().click(); await page.waitForSelector('fieldset.question');
   await focus('考核：第1题'); await shot('19-考核作答');
   for (let guard = 0; guard < 60; guard++) {

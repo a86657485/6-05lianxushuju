@@ -61,10 +61,10 @@ function showHub() {
   phase = 'hub';
   statusEl.textContent = TEACHER ? '教师试玩' : `已解锁 · 最近 ${gateInfo.latest} 分`;
   hint.textContent = '选一关开始驾驶 · ↑加速 ↓减速 ←→转向';
-  const cards = R.LEVELS.map(lv => {
+  const cards = R.LEVELS.filter(lv => !lv.hidden).map((lv, i) => {
     const b = best[lv.id];
     const st = b ? `<span class="stars">${'★'.repeat(b.stars)}${'☆'.repeat(3 - b.stars)}</span> ${b.score}分` : '尚未通关';
-    return `<button class="level-card" data-lv="${lv.id}" type="button"><b>${lv.n}. ${lv.title}</b><span>${lv.place} · ${lv.rule.slice(0, 36)}…</span><br><span>${st}</span></button>`;
+    return `<button class="level-card" data-lv="${lv.id}" type="button"><b>${i + 1}. ${lv.title}</b><span class="goal-chip">${lv.goalTag || ''}</span><span>${lv.place} · ${lv.rule.slice(0, 36)}…</span><br><span>${st}</span></button>`;
   }).join('');
   main.innerHTML = `<div class="g-card" id="hub-card"><p class="kicker">跑跑卡丁车式 · 简化夜巡</p><h2>选关开卡丁车</h2>
     <p>方向键 / WASD 开车，也可切换<strong>自动驾驶</strong>：系统用车速（输入）和限速阈值（比较）输出油门/刹车。车速是连续量；限速线是阈值。</p>
@@ -85,7 +85,7 @@ function setupLevel(id) {
     return `<div class="ctrl" data-key="${c.key}"><label><span>${c.label}</span><b id="v-${c.key}">${c.def}</b></label>
       <input id="c-${c.key}" type="range" min="${c.min}" max="${c.max}" value="${c.def}"></div>`;
   }).join('');
-  main.innerHTML = `<div class="g-card" id="setup-card"><p class="kicker">第 ${L.n} 关 · ${L.place}</p><h2>${L.title}</h2>
+  main.innerHTML = `<div class="g-card" id="setup-card"><p class="kicker">第 ${R.LEVELS.filter(lv => !lv.hidden).indexOf(L) + 1} 关 · ${L.place} · ${L.goalTag || ''}</p><h2>${L.title}</h2>
     <p>${L.rule}</p><p><b>目标：</b>${L.goal}</p>
     <div id="setup-ctrls">${ctrls}</div>
     <p class="keys-help">设好阈值后开始开车。赛中仍可在右侧改阈值——<strong>科学原理就在规则里</strong>。</p>

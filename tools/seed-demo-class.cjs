@@ -35,7 +35,7 @@ svc.server.listen(SERVE ? Number(process.env.PORT) || 8798 : 0, '127.0.0.1', asy
   const wrongOf = (stage, k) => { const g = R.goals[stage].explain[k], opts = R.optionValues[stage][k].filter(v => Array.isArray(g) ? !g.includes(v) : v !== g); return pick(opts); };
   const trialsFor = stage => {
     if (stage === 'threshold') { const alt = [pick([40, 45, 50]), pick([60, 65, 70])].slice(0, 1 + Math.floor(rnd() * 2)); return [55, ...alt].map(t => ({ threshold: t, alarms: R.countAlarms(t) })); }
-    if (stage === 'design') { const ths = [pick([20, 25, 50, 60]), pick([30, 35, 40, 45])]; if (rnd() < .4) ths.unshift(pick([10, 55, 70])); return ths.map(threshold => { const t = { data: 'moisture', direction: 'below', threshold }, g = R.simulateGarden(t); return { ...t, fit: g.fit, min: g.min, max: g.max, waterings: g.waterings }; }); }
+    if (stage === 'design') { const ths = [pick([45, 55, 58, 80]), pick([62, 65, 68, 70])]; if (rnd() < .4) ths.unshift(55); return [...new Set(ths)].map(threshold => { const g = R.simulateClassroom(threshold); return { threshold, alarms: g.alarms, falseAlarms: g.falseAlarms, caught: g.caught, fit: g.fit }; }); }
     return structuredClone(R.examples[stage].trials);
   };
   /* 每位学生：能力 a，走到第 depth 站；未进入的 3 人不产生记录 */
@@ -51,7 +51,7 @@ svc.server.listen(SERVE ? Number(process.env.PORT) || 8798 : 0, '127.0.0.1', asy
       const hints = Math.floor(rnd() * 3), hintLevel = rnd() < (1 - p.a) * .9 ? 1 + Math.floor(rnd() * 3) : 0;
       const trials = trialsFor(stage), base = { prediction, trials: [], hints: 0, conceptHintLevel: 0 };
       if (stage === 'design') base.design = { ...trials.find(x => x.fit) };
-      if (base.design) { delete base.design.fit; delete base.design.min; delete base.design.max; delete base.design.waterings; }
+      if (base.design) base.design = { threshold: base.design.threshold };
       events.push({ p, stage, t: at(), record: { ...base } });
       events.push({ p, stage, t: at(), record: { ...base, trials, hints } });
       if (!finish && rnd() < .3) continue; // 正在做实验

@@ -19,9 +19,23 @@ export function kpiHtml(st) {
   return items.map(([k, v, t]) => `<div class="kpi"><b>${esc(v)}</b><span>${k}${t ? `<small>${t}</small>` : ''}</span></div>`).join('');
 }
 
+const FOCUS_TAG = { key: '重点', hard: '难点' };
+const goalTag = s => s.goal ? `<small class="goal-tag">目标${s.goal}${s.focus ? '·' + FOCUS_TAG[s.focus] : ''}</small>` : '';
+
+/** 按教参三条学习目标与两项重难点：每个目标的站内首次证据、最终通过和考核正确率。 */
+export function targetChart(st) {
+  const rows = (st.targets || []).map(t => {
+    const bar = (n, d, c, lab) => `<div class="g-bin"><span>${lab}</span><i style="width:${w(n, d)}%;background:${c}"></i><b>${d ? pct(n, d) + '%' : '—'}</b></div>`;
+    const qb = (v, c, lab) => `<div class="g-bin"><span>${lab}</span><i style="width:${v ?? 0}%;background:${c}"></i><b>${v === null ? '—' : v + '%'}</b></div>`;
+    return `<div class="target-col"><h3>目标${t.goal}　${esc(t.label)}</h3><p class="chart-subtitle">${t.foci.length ? esc(t.foci.join('；')) + ' · ' : ''}对应：${esc(t.stations.join('、'))}（站内已提交 ${t.submitted} 人次）</p>
+      ${bar(t.explainFirst, t.submitted, C.amber, '首次解释一致')}${bar(t.transferFirst, t.submitted, C.blue2, '迁移首答正确')}${bar(t.passed, t.submitted, C.done, '最终通过')}${qb(t.quizFirst, C.prog, '考核首次正确率')}${qb(t.quizLatest, C.done, '考核最近正确率')}</div>`;
+  }).join('');
+  return card('⓪ 学习目标与重难点达成', '按教参三条学习目标归并各站与20题考核；重点＝连续量数据的表现形式，难点＝阈值的含义与作用。站内分母＝该目标各站已提交人次，考核分母＝该目标题目作答数。', rows ? `<div class="target-wrap">${rows}</div>` : empty());
+}
+
 /** 五站进度：每站 已完成/进行中/未开始（分母=全班），点一站筛选下方明细中未完成者。 */
 export function progressChart(st, { stageFilter = null } = {}) {
-  const rows = st.stages.map((s, i) => `<button type="button" class="dash-row" data-chart-stage="${s.id}" aria-pressed="${stageFilter === s.id}"><span class="row-label">${i + 1} ${esc(s.short)}</span>${stack([[s.complete, C.done, '已完成'], [s.inProgress, C.prog, '进行中'], [s.notStarted, C.none, '未开始']], st.total, `${s.name}：完成${s.complete}，进行中${s.inProgress}，未开始${s.notStarted}`)}<b>${s.complete}/${st.total}</b></button>`).join('');
+  const rows = st.stages.map((s, i) => `<button type="button" class="dash-row" data-chart-stage="${s.id}" aria-pressed="${stageFilter === s.id}"><span class="row-label">${i + 1} ${esc(s.short)}${goalTag(s)}</span>${stack([[s.complete, C.done, '已完成'], [s.inProgress, C.prog, '进行中'], [s.notStarted, C.none, '未开始']], st.total, `${s.name}：完成${s.complete}，进行中${s.inProgress}，未开始${s.notStarted}`)}<b>${s.complete}/${st.total}</b></button>`).join('');
   return card('① 五站进度', `分母：本班 ${st.total} 人。点一站，下方明细只看该站未完成的同学。`, st.entered ? `<div class="dash-rows">${rows}</div>` + legend([[C.done, '已完成'], [C.prog, '进行中'], [C.none, '未开始']]) : empty('尚无证据：还没有同学进入'));
 }
 
@@ -55,7 +69,7 @@ export function misconceptionChart(st, { selected = null } = {}) {
   const names = sel ? `<div class="mis-names"><b>${esc(sel.label)}</b><p><span class="tagdot" style="background:${C.red}"></span>仍存在：${list2(sel.students.filter(x => !x.resolved))}</p><p><span class="tagdot" style="background:${C.light}"></span>已纠正：${list2(sel.students.filter(x => x.resolved))}</p></div>` : '<p class="note">点一条误解，看是哪些同学（讨论时隐去姓名）。</p>';
   return card('③ 常见误解（首次检验）', '红=还没纠正，浅绿=已纠正（通过且最近提交、句块里不再出现）', `<div class="mis-rows">${rows}</div>${names}`);
 }
-const STAGE_NAMES = { flow: '第1站', wave: '第2站', life: '第3站', threshold: '第4站', design: '第5站' };
+const STAGE_NAMES = { flow: '第1站·目标1', wave: '第2站·目标2重点', life: '第3站·目标2重点', threshold: '第4站·目标3难点', design: '第5站·目标3难点' };
 const stageName = id => STAGE_NAMES[id] || id;
 
 /** 预测→结果：先预测，实验后对照；预测不同的同学有没有改变想法。 */
@@ -121,7 +135,21 @@ export function thresholdChart(st, R) {
   return card('⑧ 第4站：大家把阈值放在哪里', `气泡大小=试过该阈值的人数；虚线=同一晚数据按规则得出的提示次数。调低 ${lower} 人次，调高 ${higher} 人次`, svg);
 }
 
-/** 第5站：湿度方案的阈值与4天湿度范围（竖线=最低到最高；绿=保持在30%—70%）。同一阈值合并，数字=人数。 */
+/** 第5站：教室噪声监测器——同学们试过的阈值（同一阈值合并，数字=人数），绿=只在喧哗时提示。 */
+export function classroomChart(st) {
+  const list = st.classroom || [];
+  if (!list.length) return card('⑨ 第5站：教室噪声监测器的阈值', '每根柱=一个试过的阈值，高度=课间提示次数', empty());
+  const W = 620, H = 260, pl = 40, pb = 40, pt = 18, iw = W - pl - 14, ih = H - pt - pb, x = v => pl + (v - 40) / 50 * iw, ymax = 8, y = v => pt + ih * (1 - Math.min(ymax, v) / ymax);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="dash-svg" role="img" aria-label="教室噪声阈值与提示次数"><rect x="${x(62)}" y="${pt}" width="${x(76) - x(62)}" height="${ih}" fill="#e3f4ea"/>`;
+  for (const v of [0, 2, 4, 6, 8]) svg += `<line x1="${pl}" x2="${W - 14}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${pl - 6}" y="${y(v) + 5}" text-anchor="end" class="tick">${v}</text>`;
+  for (const v of [40, 45, 55, 65, 75, 90]) svg += `<text x="${x(v)}" y="${H - pb + 20}" text-anchor="middle" class="tick">${v}</text>`;
+  for (const g of list) { const cx = x(Math.max(40, Math.min(90, g.threshold))); svg += `<g><title>阈值${g.threshold} dB：提示${g.alarms}次${g.falseAlarms ? '（正常聊天' + g.falseAlarms + '次）' : ''}；${g.n}人：${esc(g.names.join('、'))}</title><rect x="${cx - 5}" y="${y(g.alarms)}" width="10" height="${pt + ih - y(g.alarms)}" fill="${g.fit ? C.done : C.red}" opacity=".85" rx="3"/><text x="${cx}" y="${y(g.alarms) - 6}" text-anchor="middle" class="val small">${g.n}</text></g>`; }
+  svg += `<text x="${W - 14}" y="${H - 6}" text-anchor="end" class="axis-label">阈值（dB）</text><text x="${pl}" y="${pt - 6}" class="axis-label">课间提示次数</text></svg>`;
+  const fit = list.filter(g => g.fit).reduce((n, g) => n + g.n, 0), std = list.find(g => g.threshold === 55);
+  return card('⑨ 第5站：教室噪声监测器的阈值', `浅绿带=只在喧哗时提示的范围（约62—76 dB）；柱上数字=人数。合适 ${fit} 人次；照搬55 dB的 ${std ? std.n : 0} 人`, svg);
+}
+
+/** 旧版第5站：湿度方案的阈值与4天湿度范围（竖线=最低到最高；绿=保持在30%—70%）。同一阈值合并，数字=人数。 */
 export function gardenChart(st) {
   if (!st.garden.length) return card('⑨ 第5站：浇水方案', '每条竖线=同学们试过的一个“土壤湿度·降到阈值就浇水”方案', empty());
   const W = 620, H = 260, pl = 40, pb = 40, pt = 18, iw = W - pl - 14, ih = H - pt - pb, x = v => pl + v / 100 * iw, y = v => pt + ih * (1 - v / 100);
@@ -142,19 +170,18 @@ export function gardenChart(st) {
 export function renderClassCharts(st, { stageFilter = null, misTag = null, R = globalThis.LessonRules } = {}) {
   return {
     kpi: kpiHtml(st), progress: progressChart(st, { stageFilter }), mastery: masteryChart(st), mis: misconceptionChart(st, { selected: misTag }),
-    pred: predictionChart(st), hint: hintChart(st), quiz: quizChart(st), timeline: timelineChart(st), threshold: thresholdChart(st, R), garden: gardenChart(st)
+    target: targetChart(st), pred: predictionChart(st), hint: hintChart(st), quiz: quizChart(st), timeline: timelineChart(st), threshold: thresholdChart(st, R), garden: classroomChart(st)
   };
 }
 
 /**
- * 奖励小游戏（考核≥80分解锁）：解锁/玩过人数、四关“我发现”首选正确率、学生最后一次设的阈值分布（绿色=合理区间）、班级排行。
+ * 奖励小游戏（考核≥80分解锁）：解锁/玩过人数、三关“我发现”首选正确率、学生最后一次设的阈值分布（绿色=合理区间）、班级排行。
  * 数据来自服务端重放后的成绩，不是学生自报。
  */
 const GAME_LEVELS = [
-  { id: 'school', name: '①校区限速', bins: [[0, 28, '<29'], [29, 34, '29–34'], [35, 50, '35–50', true], [51, 70, '51–70'], [71, 120, '≥71']], val: c => c.a?.last },
-  { id: 'rain', name: '②雨夜回差', bins: [[0, 5, '<5（易闪）'], [6, 14, '6–14'], [15, 45, '15–45', true], [46, 120, '>45']], val: c => c.b && c.a ? Math.abs(c.b.last - c.a.last) : null },
-  { id: 'sample', name: '③隧道采样', bins: [[1, 1, '极密'], [4, 4, '适中', true], [12, 12, '太稀']], val: c => c.k?.last },
-  { id: 'zones', name: '④校区限速(三区)', bins: [[0, 29, '<30'], [30, 45, '30–45', true], [46, 70, '46–70'], [71, 120, '≥71']], val: c => c.a?.last }
+  { id: 'school', name: '①校区限速（目标1—3）', bins: [[0, 28, '<29'], [29, 34, '29–34'], [35, 50, '35–50', true], [51, 70, '51–70'], [71, 120, '≥71']], val: c => c.a?.last },
+  { id: 'sample', name: '②隧道采样（目标2·重点）', bins: [[1, 1, '极密'], [4, 4, '适中', true], [12, 12, '太稀']], val: c => c.k?.last },
+  { id: 'zones', name: '③三区限速（目标3·难点）', bins: [[0, 29, '<30'], [30, 45, '30–45', true], [46, 70, '46–70'], [71, 120, '≥71']], val: c => c.a?.last }
 ];
 export function gameChart(students = []) {
   const withGate = students.filter(s => s.gameGate);

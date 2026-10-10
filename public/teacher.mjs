@@ -1,10 +1,10 @@
 import { api, download, escape } from './sync.mjs?v=1';
 import { Microphone } from './microphone.mjs?v=1';
 import { TeacherMicrophoneBridge } from './microphone-bridge.mjs?v=1';
-import { summarizeClass } from './teacher-stats.mjs?v=2';
-import { renderClassCharts, gameChart } from './teacher-charts.mjs?v=3';
+import { summarizeClass } from './teacher-stats.mjs?v=5';
+import { renderClassCharts, gameChart } from './teacher-charts.mjs?v=5';
 import { makeScale, pathOf, axes, svgOpen } from './charts.mjs?v=1';
-import { activities } from './activities.mjs?v=3';
+import { activities } from './activities.mjs?v=5';
 
 const $ = id => document.getElementById(id), R = window.LessonRules;
 const DEMO = new URLSearchParams(location.search).get('demo') === '1';
@@ -22,7 +22,7 @@ const actions = {
   wave: '让学生在两个散点之间再点一次读数，说说那一刻声音“停”了没有。',
   life: '追问：“班级人数能不能是32.5人？”“窗帘拉到一半时光照是多少？”再改分类。',
   threshold: '在曲线上分别指出“采集到的数据”和“阈值线”，再比较两个阈值的提示次数。',
-  design: '并排比较两次运行的最低/最高湿度与浇水次数，问：阈值调高后为什么更早浇水？'
+  design: '并排比较55 dB与65 dB两次回放的提示记录，问：标准是55，为什么教室课间不能照搬？阈值要看什么来定？'
 };
 
 if (DEMO) { $('demo-banner').hidden = false; $('demo-toggle').textContent = '回到真实班级'; $('demo-toggle').href = '/teacher'; $('new-round').disabled = true; }
@@ -47,7 +47,7 @@ async function refresh() {
     $('class-status').textContent = '数据未更新：' + e.message + (data ? '（下方仍是 ' + time(data.at) + ' 的旧数据）' : ''); $('class-status').className = 'dash-status warning';
   }
 }
-const CARDS = { progress: 'c-progress', mastery: 'c-mastery', mis: 'c-mis', pred: 'c-pred', hint: 'c-hint', quiz: 'c-quiz', timeline: 'c-timeline', threshold: 'c-threshold', garden: 'c-garden' };
+const CARDS = { target: 'c-target', progress: 'c-progress', mastery: 'c-mastery', mis: 'c-mis', pred: 'c-pred', hint: 'c-hint', quiz: 'c-quiz', timeline: 'c-timeline', threshold: 'c-threshold', garden: 'c-garden' };
 function clearView() { for (const id of ['summary', 'c-game', 'diagnosis', 'student-rows', ...Object.values(CARDS)]) $(id).innerHTML = ''; $('student-detail').hidden = true; }
 function render() {
   const ss = data.students, st = stats;

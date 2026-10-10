@@ -12,11 +12,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': 
 const f1 = v => Number.isFinite(v) ? (Math.round(v * 10) / 10).toFixed(1) : '?';
 
 export function cardKeys(stage, R) {
-  const k = ['compare', 'evidence'];
+  // 顺序跟随教材：第2站先回答“需要采集哪些数据”（活动1任务1），再对照第一感觉与证据（任务2）。
+  const k = stage === 'wave' ? ['collect', 'compare', 'evidence'] : ['compare', 'evidence'];
   if (stage === 'flow') k.push('input', 'compute', 'output');
   if (stage === 'wave') k.push('reason');
-  if (stage === 'life') k.push(...Object.keys(R.lifeCards));
-  if (stage === 'threshold') k.push('where', ...Object.keys(R.thresholdCases).map(c => 'case:' + c));
+  if (stage === 'life') k.push('paper', 'meter', ...Object.keys(R.lifeCards));
+  if (stage === 'threshold') k.push('role', 'where', ...Object.keys(R.thresholdCases).map(c => 'case:' + c));
   if (stage === 'design') k.push('role', 'raise');
   return [...k, 'transfer'];
 }
@@ -34,15 +35,15 @@ export function cardData(stage, record, R) {
     const tr = ts.filter(t => t.kind === 'trace' && t.max - t.min >= 15).at(-1), b = ts.filter(t => t.kind === 'between').at(-1);
     Object.assign(d, { samples: tr?.samples ?? '?', min: tr?.min ?? '?', max: tr?.max ?? '?', t: b?.t ?? '?', v: b?.value ?? '?', left: b?.leftT ?? '?', right: b?.rightT ?? '?' });
   } else if (stage === 'life') {
-    const c = ts.filter(t => t.kind === 'curtain').sort((x, y) => (y.distinct || 0) - (x.distinct || 0))[0], k = ts.filter(t => t.kind === 'kettle' && t.reading < 100).at(-1);
-    Object.assign(d, { n: c?.distinct ?? '?', min: c?.min ?? '?', max: c?.max ?? '?', r: k?.reading ?? '?' });
+    const c = ts.filter(t => t.kind === 'curtain').sort((x, y) => (y.distinct || 0) - (x.distinct || 0))[0];
+    Object.assign(d, { n: c?.distinct ?? '?', min: c?.min ?? '?', max: c?.max ?? '?' });
   } else if (stage === 'threshold') {
     const runs = ts.filter(t => Number.isInteger(t.threshold) && t.alarms === R.countAlarms(t.threshold));
     const std = runs.filter(t => t.threshold === R.NIGHT_LIMIT).at(-1), other = runs.filter(t => Math.abs(t.threshold - R.NIGHT_LIMIT) >= 5).at(-1);
     Object.assign(d, { a: std?.alarms ?? '?', x: other?.threshold ?? '?', b: other?.alarms ?? '?' });
   } else if (stage === 'design') {
-    const fit = ts.filter(t => R.designData[t.data] && t.fit).at(-1);
-    Object.assign(d, { th: fit?.threshold ?? '?', min: fit?.min ?? '?', max: fit?.max ?? '?', th25: Number.isFinite(fit?.threshold) ? Math.min(100, fit.threshold + 25) : '?' });
+    const ok = ts.filter(t => Number.isInteger(t.threshold) && t.fit).at(-1);
+    Object.assign(d, { th: ok?.threshold ?? '?', a: ok?.alarms ?? '?', b: R.simulateClassroom(55).alarms });
   }
   return d;
 }
@@ -53,12 +54,12 @@ export function dataLines(stage, record, R) {
   const ts = (Array.isArray(record?.trials) ? record.trials : []).filter(t => t && typeof t === 'object'), d = cardData(stage, record, R);
   if (stage === 'flow') return [`${d.quietScene}：声音 ${d.quietDb} dB → ${d.quietDb} ≤ 55，未超标 → 只显示数值`, `${d.overScene}：声音 ${d.overDb} dB → ${d.overDb} > 55，超标 → 显示并发出提示`];
   if (stage === 'wave') return [`你的曲线：10秒里 ${d.samples} 个读数，在 ${d.min}—${d.max} 之间连续起伏`, `圆点：每2秒才记一个读数`, `你在 ${d.t} 秒（${d.left} 秒与 ${d.right} 秒两个圆点之间）读到 ${d.v}`];
-  if (stage === 'life') return [`窗帘：光照从 ${d.max} 降到 ${d.min} lux，经过 ${d.n} 个不同读数`, `烧水：途中读到 ${d.r} ℃`];
+  if (stage === 'life') return [`窗帘：光照从 ${d.max} 降到 ${d.min} lux，经过 ${d.n} 个不同读数`];
   if (stage === 'threshold') {
     const uniq = [...new Map(ts.filter(t => Number.isInteger(t.threshold)).map(t => [t.threshold, t])).values()].sort((a, b) => b.threshold - a.threshold);
     return [...uniq.slice(0, 4).map(t => `阈值 ${t.threshold} dB → 这一晚 ${t.alarms} 次提示`), '每次回放的都是同一晚的噪声曲线'];
   }
-  if (stage === 'design') return ts.filter(t => R.designData[t.data]).slice(-4).map(t => `${R.designData[t.data].label}${t.direction === 'below' ? '降到' : '升到'}${t.threshold}${R.designData[t.data].unit}开泵：湿度 ${t.min}%—${t.max}%，浇水 ${t.waterings ?? '?'} 次 ${t.fit ? '✓ 合适' : '✗ 不合适'}`);
+  if (stage === 'design') return [...new Map(ts.filter(t => Number.isInteger(t.threshold)).map(t => [t.threshold, t])).values()].slice(-4).map(t => `阈值 ${t.threshold} dB：课间提示 ${t.alarms} 次${t.falseAlarms ? `（其中 ${t.falseAlarms} 次在正常聊天时）` : ''} ${t.fit ? '✓ 只在喧哗时提示' : '✗ 不合适'}`);
   return [];
 }
 
