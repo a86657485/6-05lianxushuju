@@ -49,13 +49,17 @@ test('关卡5：只有“湿度、降到阈值及以下、30—45%”能保持�
 });
 
 test('每关达标示例通过，错误解释给出对应修订信息', () => {
-  for (const s of R.stageIds) assert.deepEqual(R.assess(s, R.examples[s]), { pass: true, errors: [] }, s);
+  for (const s of R.stageIds) { const a = R.assess(s, R.examples[s]); assert.equal(a.pass, true, s); assert.deepEqual(a.errors, [], s); assert.deepEqual(a.wrong, [], s); }
   const wrongFlow = { ...R.examples.flow, explain: { ...R.examples.flow.explain, input: 'collector' } };
   assert.ok(R.assess('flow', wrongFlow).errors.includes(R.messages.flow.input));
   const wrongLife = { ...R.examples.life, explain: { ...R.examples.life.explain, people: 'c' } };
   assert.ok(R.assess('life', wrongLife).errors.includes(R.messages.life.sort));
-  const wrongCase = { ...R.examples.threshold, transfer: { ...R.examples.threshold.transfer, fridge: '冷藏区' } };
-  assert.ok(R.assess('threshold', wrongCase).errors.includes(R.messages.threshold.transfer));
+  const wrongCase = { ...R.examples.threshold, explain: { ...R.examples.threshold.explain, 'case:fridge': '压缩机' } };
+  assert.ok(R.assess('threshold', wrongCase).errors.includes(R.messages.threshold.cases));
+  assert.deepEqual(R.assess('threshold', wrongCase).tags, ['threshold-is-device']);
+  const wrongTransfer = { ...R.examples.threshold, transfer: 'faster' };
+  assert.ok(R.assess('threshold', wrongTransfer).errors.includes(R.messages.threshold.transfer));
+  assert.equal(R.assess('threshold', wrongTransfer).parts.explain, true, '迁移错不影响解释判断');
   const badDesign = { ...R.examples.design, design: { data: 'moisture', direction: 'below', threshold: 60 } };
   assert.ok(R.assess('design', badDesign).errors.includes(R.messages.design.design));
   const lightDesign = { ...R.examples.design, design: { data: 'light', direction: 'below', threshold: 100 } };
@@ -69,4 +73,18 @@ test('未提交、未预测、缺实验均不能通过', () => {
   assert.equal(R.assess('wave', { ...R.examples.wave, trials: [] }).pass, false);
   assert.ok(R.assess('wave', { ...R.examples.wave, trials: [{ kind: 'trace', samples: 100, min: 50, max: 55 }, R.examples.wave.trials[1]] }).errors.includes(R.messages.wave.experiment), '起伏不足15的曲线不计入');
   assert.equal(R.assess('nope', {}).pass, false);
+});
+
+test('乱点的学生：按学生端同样的重试规则点到通过，几乎拿不到满星，记录里留下误解与多次尝试', () => {
+  const { simulate } = require('../tools/guess-sim.cjs');
+  let seed = 42; const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  for (const s of R.stageIds) {
+    const N = 3000, runs = Array.from({ length: N }, () => simulate(s, rnd));
+    const three = runs.filter(m => m.stars === 3).length / N, avg = runs.reduce((n, m) => n + m.stars, 0) / N;
+    assert.ok(three < 0.03, `${s} 满星比例 ${three}`);
+    assert.ok(avg < 1.15, `${s} 平均星 ${avg}`);
+    assert.ok(runs.every(m => m.passed && m.stars >= 1), '仍可完成本站（不卡死），但证据星反映质量');
+    assert.ok(runs.filter(m => m.attempts > 1).length / N > 0.9, `${s} 绝大多数需要多次检验`);
+    assert.ok(runs.filter(m => m.tagsFirst.length).length / N > 0.9, `${s} 首次检验几乎都留下误解标签`);
+  }
 });

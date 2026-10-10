@@ -164,7 +164,7 @@ export class WaveExperiment extends Base {
       this.lastSpanSmall = max - min < 15;
       this.controls.querySelector('#rec-status').textContent = this.lastSpanSmall ? '声音几乎没变化，再录一次' : '✓ 曲线已自动保存';
       if (this.lastSpanSmall) this.ctx.say('这段声音起伏不到15，看不出变化。再录一次，让声音大起大落。', 'bad');
-      else this.ctx.say('曲线画好了！声音在 ' + min + '—' + max + ' 之间一点点变化。', 'good');
+      else this.ctx.say('曲线已保存：10秒里 ' + this.points.length + ' 个读数，在 ' + min + '—' + max + ' 之间。', 'good');
       this.ctx.addTrial({ kind: 'trace', source: this.source, samples: this.points.length, min, max, unit: this.unit, at: Date.now() }, { lastTrace: { points: this.points, unit: this.unit } });
     } else {
       this.controls.querySelector('#rec-status').textContent = '记录时间太短，未保存';
@@ -194,7 +194,7 @@ export class WaveExperiment extends Base {
     const value = round1(valueAt(this.points, t));
     this.marker = { t, value }; this.draw();
     readout.textContent = `${t} 秒：${value}${this.unit === 'dB' ? ' dB' : '（相对响度）'}`;
-    this.ctx.say(`两个圆点（${left[0]}秒和${right[0]}秒）之间，${t}秒时也有数值：${value}。声音没有停！`, 'good');
+    this.ctx.say(`读到了：${t} 秒时是 ${value}（在 ${left[0]} 秒和 ${right[0]} 秒两个圆点之间）。这个读数说明什么？到“说清楚”里用它。`, 'good');
     this.ctx.addTrial({ kind: 'between', t, value, leftT: left[0], rightT: right[0], at: Date.now() });
   }
   destroy() { super.destroy(); this.ctx.stopMic(); this.ctx.watchLive(false); }
@@ -243,7 +243,7 @@ export class LifeExperiment extends Base {
     const distinct = new Set(vals).size;
     this.ctx.addTrial({ kind: 'curtain', distinct, min: Math.min(...vals), max: Math.max(...vals), at: Date.now() });
     if (distinct < 8 || Math.max(...vals) - Math.min(...vals) < 300) this.ctx.say('这次拉得太少或太快（读数少于8个）。再慢慢多拉一段。', 'bad');
-    else this.ctx.say('光照一点点变暗，经过了 ' + distinct + ' 个不同读数！', 'good');
+    else this.ctx.say('已记录：光照从 ' + Math.max(...vals) + ' 到 ' + Math.min(...vals) + ' lux，经过了 ' + distinct + ' 个不同读数。', 'good');
   }
   heat() {
     if (this.kettle === 'heating') return;
@@ -265,7 +265,7 @@ export class LifeExperiment extends Base {
     this.controls.querySelector('#kettle-status').textContent = '读数 ' + r + ' ℃ ✓';
     this.ctx.addTrial({ kind: 'kettle', reading: r, at: Date.now() });
     if (r >= 100) this.ctx.say('已经到100 ℃了。倒掉重烧，在半路读一个中间的水温。', 'bad');
-    else this.ctx.say('水温 ' + r + ' ℃：在20 ℃和100 ℃之间，正在一点点上升。', 'good');
+    else this.ctx.say('已记录：此刻水温 ' + r + ' ℃。', 'good');
   }
   resetKettle() { this.stopTimer(this.heatTimer); this.kettle = 'idle'; this.temp = 20; this.elapsed = 0; this.tempTrace = [[0, 20]]; this.controls.querySelector('#kettle-status').textContent = ''; this.drawKettle(); this.ctx.refresh(); }
   drawKettle() {
@@ -441,7 +441,7 @@ export class DesignExperiment extends Base {
     if (this.result && !this.running) {
       const sim = this.result;
       const why = sim.fit ? '湿度一直留在绿色带里。' : sim.min < 30 ? '有时低于30%，蔬菜缺水。' : '有时高于70%，土太湿。';
-      const extra = this.data !== 'moisture' ? ' 水泵是看' + info.label + '开关的，和土干不干没有直接关系。' : '';
+      const extra = this.data !== 'moisture' ? ' 这次水泵是按' + info.label + '开关的：看看湿度曲线有没有跟着植物的需要变化？' : '';
       box.className = 'garden-result ' + (sim.fit ? 'good' : 'bad');
       box.textContent = `最低 ${sim.min}%，最高 ${sim.max}%，浇水 ${sim.waterings} 次。${why}${extra}`;
     } else { box.className = 'garden-result'; box.textContent = this.running ? '运行中…（蓝色短线 = 水泵在浇水）' : ''; }

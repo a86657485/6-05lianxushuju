@@ -115,20 +115,22 @@
   }
 
   /* ---------- 证据检查（界面与服务端同一函数） ---------- */
+  /* 找阈值：每句话里都有“测到的数据”和“参考值”两个数，干扰项按“把数据当阈值”“把输出当阈值”设计。 */
   const thresholdCases = {
-    kettle: { text: '用电热水壶烧水时，水温达到100 ℃，电热水壶会自动断电。', answer: '100℃', options: ['烧水时', '100℃', '自动断电'] },
-    fridge: { text: '小智家冰箱的冷藏区维持在4 ℃。', answer: '4℃', options: ['冰箱', '冷藏区', '4℃'] },
-    heart: { text: '小华的智能手环在监测人体健康时，当心率超过100次/min，就会发出警报。', answer: '100次/min', options: ['智能手环', '100次/min', '发出警报'] },
-    highway: { text: '小夏爸爸在限速100～120 km/h的高速公路车道上开车。', answer: '100～120 km/h', options: ['高速公路', '100～120 km/h', '开车'] }
+    kettle: { text: '从20 ℃开始烧水，传感器每1秒测一次水温，水温达到100 ℃时电热水壶自动断电。', answer: '100℃', options: ['20℃', '1秒', '100℃'], tags: { '20℃': 'threshold-is-data', '1秒': 'threshold-is-data' } },
+    fridge: { text: '冰箱冷藏区现在是6 ℃；温度高于4 ℃时，压缩机就开始制冷。', answer: '4℃', options: ['6℃', '4℃', '压缩机'], tags: { '6℃': 'threshold-is-data', '压缩机': 'threshold-is-device' } },
+    heart: { text: '小华的手环测到心率是88次/min；心率超过100次/min时，手环就发出警报。', answer: '100次/min', options: ['88次/min', '100次/min', '发出警报'], tags: { '88次/min': 'threshold-is-data', '发出警报': 'threshold-is-output' } },
+    highway: { text: '小夏爸爸的车速表显示95 km/h，这条高速公路车道限速100～120 km/h。', answer: '100～120 km/h', options: ['95 km/h', '100～120 km/h', '车速表'], tags: { '95 km/h': 'threshold-is-data', '车速表': 'threshold-is-device' } }
   };
+  /* 生活数据卡：连续量 c；不是连续量的分为“只能一个一个数”（count）和“只有几种状态”（state），两种理由都算判断正确。 */
   const lifeCards = {
     light: { label: '拉窗帘时教室里的光照强度', kind: 'c' },
     water: { label: '烧水时壶里的水温', kind: 'c' },
     cup: { label: '接水时杯中水面的高度', kind: 'c' },
     seedling: { label: '种植园里幼苗的高度', kind: 'c' },
-    people: { label: '班级里的学生人数', kind: 'd' },
-    lamp: { label: '电灯开关是开还是关', kind: 'd' },
-    rope: { label: '一分钟跳绳的个数', kind: 'd' }
+    people: { label: '班级里的学生人数', kind: 'count' },
+    lamp: { label: '电灯开关是开还是关', kind: 'state' },
+    rope: { label: '一分钟跳绳的个数', kind: 'count' }
   };
 
   function experimentChecks(stage, record = {}) {
@@ -168,96 +170,226 @@
     return [];
   }
 
+  /*
+   * 每站“说清楚”的卡片：compare（对照预测与结果）→ evidence（从自己的实验记录中选证据）→ 概念卡 → transfer（新情境，答错后换等价新情境）。
+   * compare 的正确值随学生自己的预测而定：预测与目标一致选 match，否则选 differ。
+   */
+  const lifeExplain = Object.fromEntries(Object.entries(lifeCards).map(([k, v]) => [k, v.kind === 'c' ? 'c' : ['count', 'state']]));
   const goals = {
-    flow: { prediction: 'all', explain: { input: 'sound-data', compute: 'judge', output: 'display' }, transfer: 'flow' },
-    wave: { prediction: 'wave', explain: { reason: 'continuous', points: 'samples' }, transfer: 'mid' },
-    life: { prediction: 'gradual', explain: Object.fromEntries(Object.entries(lifeCards).map(([k, v]) => [k, v.kind])), transfer: 'yes' },
-    threshold: { prediction: 'more', explain: { where: 'compute', why: 'lower' }, transfer: Object.fromEntries(Object.entries(thresholdCases).map(([k, v]) => [k, v.answer])) },
-    design: { prediction: 'on', explain: { role: 'decide', raise: 'often' }, transfer: 'ok' }
+    flow: { prediction: 'all', explain: { evidence: 'result', input: 'sound-data', compute: 'judge', output: 'display' }, transfer: 'flow' },
+    wave: { prediction: 'wave', explain: { evidence: 'between', reason: 'continuous' }, transfer: 'mid' },
+    life: { prediction: 'gradual', explain: { evidence: 'range', ...lifeExplain }, transfer: 'yes' },
+    threshold: { prediction: 'more', explain: { evidence: 'threshold', where: 'compute', ...Object.fromEntries(Object.entries(thresholdCases).map(([k, v]) => ['case:' + k, v.answer])) }, transfer: 'earlier' },
+    design: { prediction: 'low', explain: { evidence: 'direct', role: 'decide', raise: 'often' }, transfer: 'ok' }
   };
   const predictionValues = {
     flow: ['input', 'all', 'output'], wave: ['wave', 'scatter'], life: ['gradual', 'jump'],
-    threshold: ['more', 'less', 'same'], design: ['on', 'off']
+    threshold: ['more', 'less', 'same'], design: ['low', 'mid', 'high']
   };
+  const transferItems = ['A', 'B'];
+  /** 每张卡允许的选项值（服务端拒绝伪造值，也用于句块校验）。 */
+  const optionValues = {
+    flow: { evidence: ['result', 'device', 'scene'], input: ['sound-data', 'collector', 'early-judge'], compute: ['judge', 'processor', 'raw'], output: ['display', 'screen', 'music'], transfer: ['flow', 'devices', 'matter'] },
+    wave: { evidence: ['between', 'gap', 'only'], reason: ['continuous', 'pretty', 'bigger'], transfer: ['mid', 'none', 'same'] },
+    life: { evidence: ['range', 'two', 'steps'], ...Object.fromEntries(Object.keys(lifeCards).map(k => [k, ['c', 'count', 'state']])), transfer: ['yes', 'no', 'steps'] },
+    threshold: { evidence: ['threshold', 'louder', 'broken'], where: ['compute', 'input', 'output'], ...Object.fromEntries(Object.entries(thresholdCases).map(([k, v]) => ['case:' + k, v.options])), transfer: ['earlier', 'faster', 'accurate'] },
+    design: { evidence: ['direct', 'easy', 'any'], role: ['decide', 'measure', 'pump'], raise: ['often', 'later', 'same'], transfer: ['ok', 'x1', 'x2'] }
+  };
+
+  /* ---------- 常见误解：干扰项按误解设计，选错时记录误解标签（教师大屏统计） ---------- */
+  const tagLabels = {
+    'no-compare': '没有把自己的预测与实验结果对照',
+    'only-one-stage': '认为只有一个环节有数据',
+    'device-as-data': '把装置（麦克风、芯片、显示屏）当成数据',
+    'stage-mix': '分不清各环节的数据（把读数当比较结果等）',
+    'scene-as-data': '把环境里的声音、物质当成系统里的数据',
+    'gap-no-data': '认为两个读数之间没有数值、声音“停了”',
+    'step-change': '认为数值要到下次记录才跳变',
+    'pretty-reason': '用“好看、清楚”代替连续变化的理由',
+    'continuous-increasing': '认为连续变化就是一直变大',
+    'cont-as-discrete': '把连续量当成只有几种状态或跳着变',
+    'countable-continuous': '把能一个一个数的数（人数、个数）当成连续量',
+    'state-continuous': '把开关状态当成连续量',
+    'threshold-is-data': '把测到的数据当成阈值',
+    'threshold-is-output': '把阈值当成输出（提示、警报、动作）',
+    'threshold-is-device': '把阈值当成装置或测量工具',
+    'data-changed': '认为提示次数变化是因为数据变了',
+    'threshold-no-effect': '认为改阈值不会影响结果',
+    'threshold-direction': '弄反阈值调高、调低的后果',
+    'any-data': '认为采集什么数据都行，不看需求',
+    'threshold-mid': '认为阈值放在范围正中间最合适',
+    'threshold-high': '认为阈值设得越高越保险',
+    'ipo-confused': '分不清输入数据、阈值和输出'
+  };
+  const optionTags = {
+    flow: { evidence: { device: 'device-as-data', scene: 'scene-as-data' }, input: { collector: 'device-as-data', 'early-judge': 'stage-mix' }, compute: { processor: 'device-as-data', raw: 'stage-mix' }, output: { screen: 'device-as-data', music: 'scene-as-data' }, transfer: { devices: 'device-as-data', matter: 'scene-as-data' } },
+    wave: { evidence: { gap: 'gap-no-data', only: 'gap-no-data' }, reason: { pretty: 'pretty-reason', bigger: 'continuous-increasing' }, transfer: { none: 'gap-no-data', same: 'step-change' } },
+    life: { evidence: { two: 'cont-as-discrete', steps: 'cont-as-discrete' }, transfer: { no: 'cont-as-discrete', steps: 'step-change' } },
+    threshold: { evidence: { louder: 'data-changed', broken: 'data-changed' }, where: { input: 'threshold-is-data', output: 'threshold-is-output' }, transfer: { faster: 'threshold-is-output', accurate: 'threshold-is-device' } },
+    design: { evidence: { easy: 'any-data', any: 'any-data' }, role: { measure: 'threshold-is-device', pump: 'threshold-is-output' }, raise: { later: 'threshold-direction', same: 'threshold-no-effect' }, transfer: { x1: 'ipo-confused', x2: 'ipo-confused' } }
+  };
+  /** 预测里的初始想法（预测不判对错，只用于大屏“预测→结果”的转变统计）。 */
+  const predictionTags = {
+    flow: { input: 'only-one-stage', output: 'only-one-stage' }, wave: { scatter: 'gap-no-data' }, life: { jump: 'cont-as-discrete' },
+    threshold: { less: 'threshold-direction', same: 'threshold-no-effect' }, design: { mid: 'threshold-mid', high: 'threshold-high' }
+  };
+  function tagFor(stage, key, value) {
+    if (!value) return null;
+    if (stage === 'life' && lifeCards[key]) {
+      const kind = lifeCards[key].kind;
+      if (kind === 'c') return value === 'c' ? null : 'cont-as-discrete';
+      if (value !== 'c') return null;
+      return kind === 'state' ? 'state-continuous' : 'countable-continuous';
+    }
+    if (key.startsWith('case:')) return thresholdCases[key.slice(5)]?.tags[value] || null;
+    return optionTags[stage]?.[key]?.[value] || null;
+  }
+  /* ---------- 站末句块：我原来以为……实验中我看到……所以我认为……（只记录，不判分；误解句块计入大屏） ---------- */
+  const reflectOptions = {
+    flow: { saw: ['ipo', 'screen'], so: ['all', 'device', 'input'] },
+    wave: { saw: ['between', 'dots'], so: ['continuous', 'scatter'] },
+    life: { saw: ['many', 'two'], so: ['continuous', 'count'] },
+    threshold: { saw: ['diff', 'same'], so: ['compute', 'data'] },
+    design: { saw: ['band', 'any'], so: ['need', 'mid'] }
+  };
+  const reflectTags = {
+    flow: { screen: 'only-one-stage', device: 'device-as-data', input: 'only-one-stage' }, wave: { dots: 'gap-no-data', scatter: 'gap-no-data' },
+    life: { two: 'cont-as-discrete', count: 'countable-continuous' }, threshold: { same: 'threshold-no-effect', data: 'threshold-is-data' }, design: { any: 'any-data', mid: 'threshold-mid' }
+  };
+  function validReflect(stage, r) {
+    const o = reflectOptions[stage];
+    return !!(o && r && typeof r === 'object' && o.saw.includes(r.saw) && o.so.includes(r.so));
+  }
 
   const messages = {
     flow: {
-      input: '输入节点需再检查：写的是采集到的数据，还是采集装置？',
-      compute: '计算节点需再检查：处理装置“算”出了什么数据？',
-      output: '输出节点需再检查：输出的是数据结果，还是显示屏这个设备？',
+      compare: '对照需再检查：你的预测和实验里三格出现的内容一致吗？',
+      evidence: '证据需再检查：哪条记录是“算”出来的新数据？',
+      input: '输入环节需再检查：写的是采集到的数据，还是采集装置？',
+      compute: '计算环节需再检查：比较之后“算”出了什么数据？',
+      output: '输出环节需再检查：输出的是数据结果，还是显示屏这个设备？',
       transfer: '新系统：数据怎样从输入流到输出？',
       experiment: '记录一次未超过、一次超过55 dB的监测'
     },
     wave: {
+      compare: '对照需再检查：你的预测和你画出的曲线一致吗？',
+      evidence: '证据需再检查：你在两个圆点之间读到的数值说明了什么？',
       reason: '曲线更合适的理由需再检查：声音数据在时间上有什么特点？',
-      points: '散点代表什么需再检查：两个点之间声音停止了吗？',
       transfer: '两次读数之间的时刻也有数值吗？',
       experiment: '画出起伏的声音曲线，并读出两个散点之间的数值'
     },
     life: {
+      compare: '对照需再检查：你的预测和光照表的变化一致吗？',
+      evidence: '证据需再检查：光照经过了那么多不同读数，说明什么？',
       sort: '连续量分类需再检查：数据能否在一个范围内取到中间的任意数值？',
-      transfer: '指针从0转到60 km/h，会经过中间的数值吗？',
+      transfer: '新情境：变化时会不会经过中间的数值？',
       experiment: '拉动窗帘记录光照变化，并在烧水途中读一个水温'
     },
     threshold: {
+      compare: '对照需再检查：你的预测和两次运行的提示次数一致吗？',
+      evidence: '证据需再检查：同一晚的数据，什么改变了判断结果？',
       where: '阈值的位置需再检查：阈值是采集到的数据，还是用来比较的参考值？',
-      why: '阈值变化的原因需再检查：环境声音没变，什么改变了判断结果？',
-      transfer: '案例中的阈值需再检查：找出系统用来比较的那个参考值。',
+      cases: '案例中的阈值需再检查：找出系统用来比较的那个参考值，而不是测到的数据。',
+      transfer: '新情境：只改了参考值，结果会怎样变？',
       experiment: '用55 dB运行一次，再换一个明显不同的阈值运行比较'
     },
     design: {
-      design: '浇水方案需再检查：选湿度数据、降到阈值就浇水，并让曲线保持在30%—70%。',
+      compare: '对照需再检查：你预测的阈值位置和你成功的方案一致吗？',
+      evidence: '证据需再检查：水泵要回应的需求是什么？',
+      design: '方案还没让湿度一直保持在30%—70%：回看曲线哪里跑出了绿色带，再调整。',
       role: '阈值作用需再检查：阈值是测量工具，还是比较判断的参考？',
       raise: '阈值调高后的结果需再检查：比较两次运行的浇水次数和最高湿度。',
-      transfer: '鱼缸案例：分清输入数据、阈值和输出。',
+      transfer: '新情境：分清输入数据、阈值和输出。',
       experiment: '找到一种合适设置，并与另一种设置比较'
     }
   };
 
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  /**
+   * 判定一份记录。返回 pass、给学生/教师看的 errors、需要修订的卡片 wrong、误解标签 tags，
+   * 以及分项 parts（预测、实验、解释、方案、迁移），供“首次/最近”和证据星使用。
+   */
   function assess(stage, record) {
-    const errors = [];
-    if (!stageIds.includes(stage) || !record || typeof record !== 'object') return { pass: false, errors: ['还没有本关学习记录'] };
-    const g = goals[stage], m = messages[stage], r = record;
-    if (r.submitted !== true) errors.push('请提交本次解释后再检验');
-    if (!predictionValues[stage].includes(r.prediction)) errors.push('先留下你的首次预测');
-    if (experimentChecks(stage, r).some(c => !c.complete)) errors.push(m.experiment);
-    const ex = r.explain && typeof r.explain === 'object' ? r.explain : {};
-    if (stage === 'life') {
-      if (Object.entries(g.explain).some(([k, v]) => ex[k] !== v)) errors.push(m.sort);
-    } else if (stage === 'design') {
-      const d = r.design && typeof r.design === 'object' ? r.design : {};
-      const sim = simulateGarden(d);
-      const okDesign = d.data === 'moisture' && d.direction === 'below' && finite(d.threshold) && sim.fit;
-      if (!okDesign) errors.push(m.design);
-      for (const k of Object.keys(g.explain)) if (ex[k] !== g.explain[k]) errors.push(m[k]);
-    } else {
-      for (const k of Object.keys(g.explain)) if (ex[k] !== g.explain[k]) errors.push(m[k]);
+    const empty = { prediction: false, experiment: false, explain: false, design: false, transfer: false };
+    if (!stageIds.includes(stage) || !record || typeof record !== 'object') return { pass: false, errors: ['还没有本关学习记录'], wrong: [], tags: [], parts: empty };
+    const errors = [], wrong = [], tags = new Set();
+    const g = goals[stage], m = messages[stage], r = record, ex = obj(r.explain);
+    const add = msg => { if (!errors.includes(msg)) errors.push(msg); };
+    if (r.submitted !== true) add('请提交本次解释后再检验');
+    const predOk = predictionValues[stage].includes(r.prediction);
+    if (!predOk) add('先留下你的首次预测');
+    const expOk = experimentChecks(stage, r).every(c => c.complete);
+    if (!expOk) add(m.experiment);
+    const cmp = predOk ? (r.prediction === g.prediction ? 'match' : 'differ') : null;
+    if (ex.compare !== cmp) { wrong.push('compare'); add(m.compare); if (ex.compare) tags.add('no-compare'); }
+    for (const [k, expect] of Object.entries(g.explain)) {
+      const v = ex[k], ok = Array.isArray(expect) ? expect.includes(v) : v === expect;
+      if (ok) continue;
+      wrong.push(k);
+      add(stage === 'life' && lifeCards[k] ? m.sort : k.startsWith('case:') ? m.cases : m[k]);
+      const t = tagFor(stage, k, v); if (t) tags.add(t);
     }
-    if (stage === 'threshold') {
-      const tr = r.transfer && typeof r.transfer === 'object' ? r.transfer : {};
-      if (Object.entries(g.transfer).some(([k, v]) => tr[k] !== v)) errors.push(m.transfer);
-    } else if (r.transfer !== g.transfer) errors.push(m.transfer);
-    return { pass: errors.length === 0, errors };
+    let designOk = true;
+    if (stage === 'design') {
+      const d = obj(r.design), sim = simulateGarden(d);
+      designOk = d.data === 'moisture' && d.direction === 'below' && finite(d.threshold) && sim.fit;
+      if (!designOk) add(m.design);
+    }
+    const transferOk = transferItems.includes(r.transferItem || 'A') && r.transfer === g.transfer;
+    if (!transferOk) { wrong.push('transfer'); add(m.transfer); const t = tagFor(stage, 'transfer', r.transfer); if (t) tags.add(t); }
+    const explainOk = wrong.every(k => k === 'transfer');
+    return { pass: errors.length === 0, errors, wrong, tags: [...tags], parts: { prediction: predOk, experiment: expOk, explain: explainOk, design: designOk, transfer: transferOk } };
+  }
+  /** 这一站作答的“内容指纹”：内容没变的重复提交（如补写句块）不算新的一次尝试。 */
+  function answerKey(r) { const x = obj(r); return JSON.stringify([x.prediction, obj(x.explain), x.transfer, x.transferItem || 'A', obj(x.design)]); }
+
+  /**
+   * 一站的证据摘要（服务端写入记录、大屏统计、学生端显示共用）。
+   * 证据星：完成本站 1 颗；首次提交时解释卡全对 +1；首次提交时解释卡全对且迁移题也答对，再 +1（逐级，不单独为迁移给星）。
+   * 首次提交前用了第3级“具体帮助”的，后两颗不计（记作有支持的表现，不扣积分）。
+   */
+  function stageSummary(stage, st, awarded) {
+    st = obj(st);
+    const fs = st.firstSubmitted, ls = st.lastSubmitted, latest = st.latest || ls;
+    const fa = fs ? assess(stage, fs) : null, la = ls ? assess(stage, ls) : null;
+    const firstHint = Number(fs?.conceptHintLevel) || 0, independent = firstHint < 3;
+    const explainFirst = !!fa?.parts.explain, transferFirst = !!fa?.parts.transfer;
+    // 星是逐级的：第三颗要求解释和迁移第一次都对（单道三选一的迁移题乱猜也有1/3机会，不能单独给星）
+    const stars = awarded ? 1 + (explainFirst && independent ? 1 : 0) + (explainFirst && transferFirst && independent ? 1 : 0) : 0;
+    const pred = st.first?.prediction || null;
+    const reflectSrc = [latest, ls].find(x => validReflect(stage, x?.reflect));
+    const reflect = reflectSrc ? { saw: reflectSrc.reflect.saw, so: reflectSrc.reflect.so } : null;
+    const rTags = reflect ? [reflectTags[stage][reflect.saw], reflectTags[stage][reflect.so]].filter(Boolean) : [];
+    const levels = [latest, ls, fs].map(x => Number(x?.conceptHintLevel) || 0);
+    return {
+      prediction: pred, predictionCorrect: pred ? pred === goals[stage].prediction : null, predictionTag: pred ? predictionTags[stage][pred] || null : null,
+      submitted: !!fs, attempts: Number.isInteger(st.attempts) ? st.attempts : (fs ? 1 : 0), firstPass: !!fa?.pass, passed: !!awarded,
+      explainFirst, transferFirst, transferFinal: !!la?.parts.transfer,
+      firstHintLevel: firstHint, conceptHintLevel: Math.min(3, Math.max(...levels)), opHints: Number(latest?.hints) || 0,
+      tagsFirst: fa?.tags || [], tagsLatest: la && !la.pass ? la.tags : [], reflect, reflectTags: [...new Set(rTags)], stars
+    };
   }
 
   /** 教师测试的达标示例（虚构，不进入班级统计）。 */
+  const full = (stage, extra) => ({ explain: { compare: 'match', ...goals[stage].explain }, transfer: goals[stage].transfer, transferItem: 'A', prediction: goals[stage].prediction, ...extra });
+  const life = full('life', {}); for (const [k, v] of Object.entries(lifeCards)) life.explain[k] = v.kind;
   const examples = {
-    flow: { prediction: 'all', trials: [{ scene: 'quiet', db: measureSquare('quiet', 1), over: false }, { scene: 'dance', db: measureSquare('dance', 2), over: true }], explain: goals.flow.explain, transfer: 'flow' },
-    wave: { prediction: 'wave', trials: [{ kind: 'trace', source: 'simulation', samples: 60, min: 38, max: 70 }, { kind: 'between', t: 7.5, value: 52.3, leftT: 5, rightT: 10 }], explain: goals.wave.explain, transfer: 'mid' },
-    life: { prediction: 'gradual', trials: [{ kind: 'curtain', distinct: 20, min: 60, max: 800 }, { kind: 'kettle', reading: 63.5 }], explain: goals.life.explain, transfer: 'yes' },
-    threshold: { prediction: 'more', trials: [{ threshold: 55, alarms: countAlarms(55) }, { threshold: 45, alarms: countAlarms(45) }], explain: goals.threshold.explain, transfer: goals.threshold.transfer },
-    design: {
-      prediction: 'on',
-      trials: [{ data: 'moisture', direction: 'below', threshold: 35, fit: simulateGarden({ data: 'moisture', direction: 'below', threshold: 35 }).fit }, { data: 'moisture', direction: 'below', threshold: 60, fit: simulateGarden({ data: 'moisture', direction: 'below', threshold: 60 }).fit }],
-      design: { data: 'moisture', direction: 'below', threshold: 35 }, explain: goals.design.explain, transfer: 'ok'
-    }
+    flow: full('flow', { trials: [{ scene: 'quiet', db: measureSquare('quiet', 1), over: false }, { scene: 'dance', db: measureSquare('dance', 2), over: true }] }),
+    wave: full('wave', { trials: [{ kind: 'trace', source: 'simulation', samples: 60, min: 38, max: 70 }, { kind: 'between', t: 7.5, value: 52.3, leftT: 6, rightT: 8 }] }),
+    life: { ...life, trials: [{ kind: 'curtain', distinct: 20, min: 60, max: 800 }, { kind: 'kettle', reading: 63.5 }] },
+    threshold: full('threshold', { trials: [{ threshold: 55, alarms: countAlarms(55) }, { threshold: 45, alarms: countAlarms(45) }] }),
+    design: full('design', {
+      trials: [35, 60].map(threshold => { const t = { data: 'moisture', direction: 'below', threshold }, g = simulateGarden(t); return { ...t, fit: g.fit, min: g.min, max: g.max, waterings: g.waterings }; }),
+      design: { data: 'moisture', direction: 'below', threshold: 35 }
+    })
   };
-  for (const e of Object.values(examples)) e.submitted = true;
+  for (const [k, e] of Object.entries(examples)) { e.submitted = true; e.reflect = { saw: reflectOptions[k].saw[0], so: reflectOptions[k].so[0] }; }
 
   return {
     stages, stageIds, NIGHT_LIMIT, squareScenes, measureSquare, overLimit,
     nightNoise, minuteLabel, alarmEpisodes, countAlarms,
     designData, BAND, simulateGarden, lightAt, tempAt,
-    thresholdCases, lifeCards, experimentChecks, assess, goals, predictionValues, messages, examples
+    thresholdCases, lifeCards, experimentChecks, assess, goals, predictionValues, messages, examples,
+    transferItems, optionValues, tagLabels, optionTags, predictionTags, tagFor, reflectOptions, reflectTags, validReflect, answerKey, stageSummary
   };
 });

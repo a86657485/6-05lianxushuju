@@ -56,10 +56,14 @@ test('关卡：按顺序解锁，积分同轮只记一次，首次预测与首�
     const wrongFirst = { ...R.examples.flow, prediction: 'input', explain: { ...R.examples.flow.explain, output: 'screen' } };
     let st = (await send(c, me, 'flow', wrongFirst)).body;
     assert.equal(st.points, 0); assert.equal(st.records.flow.firstSubmitted.assessment.pass, false);
-    const ok = { ...R.examples.flow, prediction: 'input' };
+    const ok = { ...R.examples.flow, prediction: 'input', explain: { ...R.examples.flow.explain, compare: 'differ' } };
+    assert.equal((await send(c, me, 'flow', { ...R.examples.flow, prediction: 'input' })).body.points, 0, '预测与结果不同却选“一致”不能通过');
     st = (await send(c, me, 'flow', ok, 'same-id')).body; assert.equal(st.points, 10);
     st = (await send(c, me, 'flow', ok, 'same-id')).body; assert.equal(st.points, 10, '重复补传不加分');
-    assert.equal(st.records.flow.history.length, 2, '重复事件只记录一次');
+    assert.equal(st.records.flow.history.length, 3, '重复事件只记录一次');
+    assert.equal(st.records.flow.attempts, 3, '作答内容不同才算一次尝试');
+    assert.equal(st.records.flow.summary.stars, 1, '首次解释没对上证据：只得通关星');
+    assert.deepEqual(st.records.flow.summary.tagsFirst, ['no-compare', 'device-as-data'], '首次：预测不同却说一致 + 把装置当数据');
     st = (await send(c, me, 'flow', { ...ok, editedAt: Date.now() + 5 })).body; assert.equal(st.points, 10, '重做通过不重复加分');
     assert.equal(st.records.flow.first.prediction, 'input');
     assert.equal(st.records.flow.firstSubmitted.assessment.pass, false, '首次提交证据保留');
@@ -132,7 +136,7 @@ test('教师页面与接口：非教师设备访问被拒绝，学生入口正�
   const dir = tmp(), s = await start(dir, { host: ip, networkInterfaces: () => ({ lo: [{ address: '127.0.0.1', family: 'IPv4' }] }) });
   const c = client(s.base);
   try {
-    for (const p of ['/teacher', '/test', '/teacher.mjs', '/api/teacher/class?class=601', '/api/teacher/answers', '/teacher-microphone']) assert.equal((await c(p)).status, 403, p);
+    for (const p of ['/teacher', '/teacher?demo=1', '/demo-class.json', '/test', '/teacher.mjs', '/api/teacher/class?class=601', '/api/teacher/answers', '/teacher-microphone']) assert.equal((await c(p)).status, 403, p);
     assert.equal((await c('/api/teacher/new-round', { classId: '601' })).status, 403);
     assert.equal((await c('/')).status, 200); assert.equal((await c('/rules.js')).status, 200);
     const html = (await c('/')).body; assert.ok(!html.includes('/teacher"') && !html.includes('/test"'), '学生页不出现教师入口');
@@ -140,4 +144,33 @@ test('教师页面与接口：非教师设备访问被拒绝，学生入口正�
   } finally { await s.stop(); }
   const s2 = await start(tmp(), { host: ip, teacherAllow: ip + '/32', networkInterfaces: () => ({}) });
   try { assert.equal((await client(s2.base)('/api/teacher/class?class=601')).status, 200, 'TEACHER_ALLOW 中的设备可访问'); } finally { await s2.stop(); }
+});
+
+test('学习证据：服务端重算首次/尝试/提示/误解/迁移；大屏数据精简，导出保留完整考核', async () => {
+  const dir = tmp(), s = await start(dir), c = client(s.base);
+  try {
+    const me = (await c('/api/login', { classId: '601', id: 't601-b' })).body;
+    const ex = R.examples.flow;
+    // 学生端伪造“已通过”的评估不被采信：服务端自己重判
+    const forged = { ...ex, explain: { ...ex.explain, compute: 'processor' }, transfer: 'matter', conceptHintLevel: 2, hints: 3, assessment: { pass: true } };
+    let st = (await send(c, me, 'flow', forged)).body;
+    assert.equal(st.points, 0); assert.equal(st.records.flow.summary.passed, false);
+    assert.deepEqual(st.records.flow.summary.tagsFirst.sort(), ['device-as-data', 'scene-as-data']);
+    st = (await send(c, me, 'flow', { ...ex, transferItem: 'B', conceptHintLevel: 2, hints: 3 })).body;
+    const m = st.records.flow.summary;
+    assert.equal(st.points, 10); assert.equal(m.stars, 1, '解释、迁移都不是第一次就对');
+    assert.equal(m.attempts, 2); assert.equal(m.firstPass, false); assert.equal(m.transferFirst, false); assert.equal(m.transferFinal, true);
+    assert.equal(m.conceptHintLevel, 2); assert.equal(m.opHints, 3); assert.equal(m.prediction, 'all');
+    st = (await send(c, me, 'flow', { ...ex, transferItem: 'B', conceptHintLevel: 2, reflect: { saw: 'ipo', so: 'device' }, reflectDone: true })).body;
+    assert.equal(st.records.flow.attempts, 2, '补写句块不算新的尝试');
+    assert.deepEqual(st.records.flow.summary.reflectTags, ['device-as-data'], '句块里的误解也记下');
+    const exam = (await c('/api/exam/create', { sid: me.student.id, round: me.round })).body;
+    const answers = Object.fromEntries(exam.questions.map(q => [q.id, 0]));
+    assert.equal((await c('/api/exam/submit', { sid: me.student.id, round: me.round, examId: exam.id, answers })).status, 200);
+    const cls = (await c('/api/teacher/class?class=601')).body, row = cls.students.find(x => x.student.id === 't601-b');
+    assert.ok(row.records.flow.summary && row.stars === 1);
+    assert.equal(row.quizAttempts[0].feedback, undefined, '大屏不带逐题内容'); assert.ok(row.quizAttempts[0].byGoal);
+    const full = (await c('/api/teacher/class?class=601&full=1')).body.students.find(x => x.student.id === 't601-b');
+    assert.equal(full.quizAttempts[0].feedback.length, 20, '导出保留逐题记录');
+  } finally { await s.stop(); }
 });

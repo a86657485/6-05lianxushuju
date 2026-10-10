@@ -1,11 +1,12 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>小区噪声巡查 · 连续变化的数据</title><link rel="stylesheet" href="/game.css?v=2"><script src="/rules.js?v=2" defer></script><script type="module" src="/app.mjs?v=2"></script></head>
+<title>小区噪声巡查 · 连续变化的数据</title><link rel="stylesheet" href="/game.css?v=3"><script src="/rules.js?v=3" defer></script><script type="module" src="/app.mjs?v=3"></script></head>
 <body class="game">
 <header id="hud" class="hud" hidden>
   <button id="hud-avatar" class="hud-avatar" type="button" aria-label="换一个角色"><img id="hud-avatar-img" alt="" width="30" height="40"></button>
   <span id="identity" class="hud-id"></span>
   <ol id="hud-progress" class="hud-progress" aria-label="五站进度"></ol>
-  <b id="points" class="hud-points" aria-label="积分">★ 0</b>
+  <b id="stars" class="hud-stars" aria-label="证据星" title="证据星：看第一次的独立表现">⭐ 0/15</b>
+  <b id="points" class="hud-points" aria-label="积分">积分 0</b>
   <small id="sync-status" class="hud-sync" role="status"></small>
   <span class="hud-right">
     <button id="sound" class="hud-btn" type="button" aria-label="音效开关">🔇</button>

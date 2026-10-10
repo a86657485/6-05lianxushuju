@@ -324,3 +324,30 @@ button.place.cta{background:#1b3a5c!important}
   *,*::before,*::after{animation:none!important;transition:none!important}
   .cta::after{opacity:1}
 }
+
+/* ---------- 逆向设计版：对照预测、我的数据、划掉的选项、句块、证据星 ---------- */
+.hud-stars{color:#fff3c4;font-size:16px;white-space:nowrap}
+.hud-points{font-size:15px}
+.hud-progress li.done{font-size:11px;letter-spacing:-1px}
+.hud-progress li.s1{background:#c9b27a}.hud-progress li.s2{background:#f2c14e}.hud-progress li.s3{background:var(--amber);box-shadow:0 0 0 2px #fff3c4}
+.place-badge{font-size:13px;letter-spacing:-1px}
+.compare-box{display:grid;grid-template-columns:1fr 1.3fr;gap:10px;margin:4px 0 10px}
+.compare-box p{margin:0;background:#eef5f8;border-radius:12px;padding:8px 12px;font-size:15px;line-height:1.5}
+.compare-box p:last-child{background:#fff3c9}
+.compare-box b{display:block;font-size:13px;color:#277f79;margin-bottom:2px}
+.opt.ruled{text-decoration:line-through;opacity:.5;background:#f3e6e4;border-color:#e2b8b2}
+.card-msg{background:#fff1ef;border:2px solid #ffb4aa;border-radius:12px;padding:8px 12px;margin-top:10px;font-weight:600}
+.card-msg p{margin:0}.card-msg .note{font-weight:400;margin-top:4px}
+.card-msg .my-data{margin-top:6px;font-weight:400;color:#173d50;font-size:14px;background:#fff;border-radius:8px;padding:6px 10px}
+.card-msg .my-data b{display:block;color:#277f79;font-size:12px}
+.qcard.reflect .sentence{font-size:20px;line-height:1.9;margin:6px 0 12px}
+.slot{display:inline-block;min-width:120px;border-bottom:3px dashed #9fb3bd;color:#9fb3bd;padding:0 6px}
+.slot.filled{border:2px solid #2b9a8c;border-radius:10px;background:#d8f1ec;color:#173d50;font:inherit;font-weight:700;padding:0 10px;min-height:0;cursor:pointer}
+.chips{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px}.chips .chip{flex:1 1 240px}
+.stars{color:#d99a00;letter-spacing:2px;white-space:nowrap}
+.star-burst{letter-spacing:4px}
+.star-rows{list-style:none;padding:0;margin:8px auto;text-align:left;max-width:440px}
+.star-rows li{display:flex;gap:10px;align-items:center;padding:3px 0;color:#7a8f99;font-size:16px}
+.star-rows li b{font-size:22px;color:#c3ccd1}.star-rows li.got{color:#173d50}.star-rows li.got b{color:#e0a200}
+@media (max-width:700px){.compare-box{grid-template-columns:1fr}.qcard.reflect .sentence{font-size:17px}.hud-stars{font-size:13px}.hud-points{display:none}}
+@media (prefers-reduced-motion:reduce){.star-burst{animation:none!important}}

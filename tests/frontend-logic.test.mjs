@@ -46,33 +46,41 @@ test('实验指引：每一刻只指向一个具体控件，并附一句话提�
   assert.equal(nextExperimentAction('design', R.experimentChecks('design', R.examples.design)).selector, '#go-explain');
 });
 
-test('说清楚：一张卡一个问题，先补未答，再改标红，最后检验', () => {
-  assert.deepEqual(cardKeys('flow', R), ['input', 'compute', 'output', 'transfer']);
-  assert.equal(cardKeys('life', R).length, 8);
-  assert.deepEqual(cardKeys('threshold', R).slice(2), ['case:kettle', 'case:fridge', 'case:heart', 'case:highway']);
+test('说清楚：对照预测→自己的证据→概念卡→新情境；改标红；通过后写句块', () => {
+  assert.deepEqual(cardKeys('flow', R), ['compare', 'evidence', 'input', 'compute', 'output', 'transfer']);
+  assert.equal(cardKeys('life', R).length, 2 + Object.keys(R.lifeCards).length + 1, '对照+证据+数据卡+迁移');
+  assert.deepEqual(cardKeys('threshold', R).slice(3, 7), ['case:kettle', 'case:fridge', 'case:heart', 'case:highway']);
   const empty = { ...R.examples.wave, explain: {}, transfer: '' };
-  assert.equal(explainTarget('wave', empty, [], R).card, 'reason');
-  const rec = { ...R.examples.wave, explain: { reason: 'pretty', points: 'samples' } };
-  const errors = R.assess('wave', rec).errors;
-  const wrong = wrongCards('wave', rec, errors, R);
-  assert.deepEqual(wrong, ['reason']);
-  assert.equal(explainTarget('wave', rec, errors, R, wrong).selector, '[data-card="reason"] .card-options');
-  assert.equal(explainTarget('wave', rec, errors, R, []).selector, '#check', '改过后回到检验');
+  assert.equal(explainTarget('wave', empty, R).card, 'compare', '先对照自己的预测');
+  const rec = { ...R.examples.wave, explain: { ...R.examples.wave.explain, reason: 'pretty' } };
+  assert.deepEqual(wrongCards('wave', rec, R), ['reason']);
+  assert.deepEqual(R.assess('wave', rec).tags, ['pretty-reason'], '误解标签');
+  assert.equal(explainTarget('wave', rec, R, { revisit: ['reason'], reviewed: true }).selector, '[data-card="reason"] .card-options');
+  assert.equal(explainTarget('wave', rec, R, { reviewed: true }).selector, '#check', '改过后回到检验');
+  const mismatch = { ...R.examples.wave, prediction: 'scatter' };
+  assert.deepEqual(wrongCards('wave', mismatch, R), ['compare'], '预测与结果不同却说“一致”要改');
   const life = { ...R.examples.life, explain: { ...R.examples.life.explain, lamp: 'c' } };
-  assert.deepEqual(wrongCards('life', life, R.assess('life', life).errors, R), ['lamp']);
-  const th = { ...R.examples.threshold, transfer: { ...R.examples.threshold.transfer, fridge: '冷藏区' } };
-  assert.deepEqual(wrongCards('threshold', th, R.assess('threshold', th).errors, R), ['case:fridge']);
+  assert.deepEqual(wrongCards('life', life, R), ['lamp']); assert.deepEqual(R.assess('life', life).tags, ['state-continuous']);
+  const th = { ...R.examples.threshold, explain: { ...R.examples.threshold.explain, 'case:fridge': '6℃' } };
+  assert.deepEqual(wrongCards('threshold', th, R), ['case:fridge']); assert.deepEqual(R.assess('threshold', th).tags, ['threshold-is-data']);
   const design = { ...R.examples.design, design: { data: 'moisture', direction: 'below', threshold: 60 } };
-  assert.equal(explainTarget('design', design, R.assess('design', design).errors, R).selector, '#back-to-experiment');
+  assert.equal(explainTarget('design', design, R, { reviewed: true }).selector, '#back-to-experiment');
+  const passed = { ...R.examples.flow, reflect: {} };
+  assert.equal(explainTarget('flow', passed, R, { passed: true }).selector, '#reflect-saw');
+  assert.equal(explainTarget('flow', { ...passed, reflect: { saw: 'ipo', so: 'all' }, reflectDone: true }, R, { passed: true }).selector, '#next');
 });
 
-test('连续曲线：散点取样与两点之间读数', () => {
-  const pts = Array.from({ length: 101 }, (_, i) => [i / 10, 40 + i / 5]);
-  const dots = samplePoints(pts, 2);
-  assert.deepEqual(dots.map(d => d[0]), [0, 2, 4, 6, 8, 10]);
-  const { left, right } = neighbours(dots, 3.1);
-  assert.equal(left[0], 2); assert.equal(right[0], 4);
-  assert.ok(Math.abs(valueAt(pts, 3.15) - 46.3) < 1e-9);
+test('证据星：第一次就对才得后两颗；用了“具体帮助”不计；靠重试完成只得1颗', () => {
+  const ex = R.examples.flow, wrong = { ...ex, explain: { ...ex.explain, compute: 'raw' } };
+  const st = (first, last, extra = {}) => ({ first, firstSubmitted: first, lastSubmitted: last, latest: last, attempts: first === last ? 1 : 2, ...extra });
+  assert.equal(R.stageSummary('flow', st(ex, ex), true).stars, 3);
+  assert.equal(R.stageSummary('flow', st(wrong, ex), true).stars, 1, '解释首次错：迁移首次对也不单独给星（三选一可能是猜的）');
+  assert.equal(R.stageSummary('flow', st({ ...ex, transfer: 'devices' }, ex), true).stars, 2, '解释首次全对、迁移首次错');
+  assert.equal(R.stageSummary('flow', st({ ...wrong, transfer: 'devices' }, ex), true).stars, 1);
+  assert.equal(R.stageSummary('flow', st({ ...ex, conceptHintLevel: 3 }, { ...ex, conceptHintLevel: 3 }), true).stars, 1, '第3级具体帮助');
+  assert.equal(R.stageSummary('flow', st(ex, ex), false).stars, 0, '未通过不给星');
+  const m = R.stageSummary('flow', st(wrong, ex), true);
+  assert.equal(m.attempts, 2); assert.deepEqual(m.tagsFirst, ['stage-mix']); assert.equal(m.explainFirst, false); assert.equal(m.transferFirst, true);
 });
 
 function fakeStudent(id, classId, opts = {}) {
@@ -93,11 +101,40 @@ test('班级图表口径：分母、未提交、首次/最近、考核按目标'
   assert.equal(s.quiz.tested, 1); assert.equal(s.quiz.firstAvg, 60); assert.equal(s.quiz.latestAvg, 90);
   assert.deepEqual(s.quiz.goals[0].first, { right: 2, n: 4 });
   assert.deepEqual(commonErrors(students, 'flow')[0], [R.messages.flow.input, 1]);
-  const html = renderClassCharts(s);
-  assert.ok(html.stageHtml.includes('2/3')); assert.ok(html.evidenceHtml.includes('尚无证据'));
+  const html = renderClassCharts(s, { R });
+  assert.ok(html.progress.includes('2/3')); assert.ok(html.mastery.includes('<svg'));
   assert.throws(() => summarizeClass({ classId: '601', students: [fakeStudent('x', '602')] }, R.stages), /不一致/);
   const empty = renderClassCharts(summarizeClass({ classId: '603', round: 'r1', students: [] }, R.stages, quiz.groups));
-  assert.ok(empty.quizHtml.includes('尚无证据'));
+  for (const k of ['progress', 'mastery', 'mis', 'pred', 'hint', 'quiz', 'timeline', 'threshold', 'garden']) assert.ok(empty[k].includes('尚无证据'), k + ' 空班显示尚无证据');
+});
+
+test('大屏证据口径：首次/最终、误解可点开、预测转变、提示级别、阈值气泡', () => {
+  const now = Date.parse('2026-10-10T02:00:00Z'), iso = m => new Date(now - m * 60000).toISOString();
+  const ex = R.examples.flow, wrong = { ...ex, explain: { ...ex.explain, input: 'collector' }, transfer: 'devices', prediction: 'input', conceptHintLevel: 1 };
+  wrong.explain.compare = 'differ';
+  const right = { ...wrong, explain: { ...ex.explain, compare: 'differ' }, transfer: 'flow', transferItem: 'B' };
+  const rec = (first, last, pass) => ({ first, latest: last, firstSubmitted: first, lastSubmitted: last, attempts: 2, history: [{ created: iso(5), submitted: true, pass: false }, { created: iso(2), submitted: true, pass }] });
+  const thr = R.examples.threshold;
+  const students = [
+    fakeStudent('甲', '601', { entered: true, awards: ['flow'], records: { flow: rec(wrong, right, true), threshold: { latest: { trials: thr.trials }, history: [] } } }),
+    fakeStudent('乙', '601', { entered: true, records: { flow: rec(wrong, wrong, false), threshold: { latest: { trials: thr.trials.slice(0, 1) }, history: [] } } }),
+    fakeStudent('丙', '601', { entered: true, awards: ['flow'], records: { flow: rec(ex, ex, true) } })
+  ];
+  for (const s of students) s.awards.forEach(a => a.created = iso(2));
+  const st = summarizeClass({ classId: '601', round: 'r1', at: new Date(now).toISOString(), students }, R.stages, quiz.groups, R, now);
+  const f = st.stages[0];
+  assert.deepEqual(f.evidence, { submitted: 3, explainFirst: 1, transferFirst: 1, passed: 2, attemptsAvg: 2 });
+  assert.deepEqual(f.stars, { one: 1, two: 0, three: 1 }, '甲首次错→1星，丙首次全对→3星');
+  assert.deepEqual(f.prediction, { n: 3, correct: 1, revised: 1, pending: 1 });
+  assert.deepEqual(f.hints.levels, [1, 2, 0, 0]);
+  const dev = st.misconceptions.find(m => m.tag === 'device-as-data');
+  assert.equal(dev.count, 2); assert.equal(dev.unresolved, 1, '乙仍存在，甲已纠正');
+  assert.deepEqual(dev.students.map(x => [x.name, x.resolved]), [['甲', true], ['乙', false]]);
+  const t55 = st.thresholds.find(t => t.threshold === 55); assert.equal(t55.n, 2); assert.equal(t55.alarms, R.countAlarms(55));
+  assert.equal(st.timeline.minutes.reduce((n, m) => n + m.checks, 0), 6); assert.equal(st.timeline.minutes.reduce((n, m) => n + m.passes, 0), 2);
+  const html = renderClassCharts(st, { misTag: 'device-as-data', R });
+  assert.ok(html.mis.includes(R.tagLabels['device-as-data'])); assert.ok(html.mis.includes('仍存在：乙'));
+  assert.ok(html.threshold.includes('<circle')); assert.ok(html.garden.includes('尚无证据'));
 });
 
 test('考核反馈：错题在前并给答案与解析；教师测试卷每目标4题', () => {

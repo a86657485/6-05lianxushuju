@@ -1,28 +1,17 @@
 /* 学习三步的进度、“当前唯一主要操作”与解释卡片顺序（纯函数，便于测试）。 */
-import { activities } from './activities.mjs';
+import { cardKeys, explainKeys } from './cards.mjs';
+export { cardKeys, explainKeys };
 
-export function explainKeys(stage, rules) {
-  const a = activities[stage];
-  if (a.explain.type === 'flow') return a.explain.nodes.map(n => n[0]);
-  if (a.explain.type === 'choices') return a.explain.items.map(i => i[0]);
-  if (a.explain.type === 'sort') return Object.keys(rules.lifeCards);
-  return [];
+export function cardAnswered(stage, record, key) {
+  if (key === 'transfer') return typeof record.transfer === 'string' && !!record.transfer;
+  return !!record.explain?.[key];
 }
-export function explainDone(stage, record, rules) {
-  const ex = record.explain || {};
-  return explainKeys(stage, rules).every(k => !!ex[k]);
-}
-export function transferDone(stage, record, rules) {
-  if (activities[stage].transfer.type === 'cases') {
-    const tr = record.transfer && typeof record.transfer === 'object' ? record.transfer : {};
-    return Object.keys(rules.thresholdCases).every(k => !!tr[k]);
-  }
-  return typeof record.transfer === 'string' && !!record.transfer;
-}
+export function explainDone(stage, record, rules) { return explainKeys(stage, rules).every(k => cardAnswered(stage, record, k)); }
+export function transferDone(stage, record) { return cardAnswered(stage, record, 'transfer'); }
 export function learningProgress(stage, record, rules) {
   const checks = rules.experimentChecks(stage, record);
   const experimentDone = checks.length > 0 && checks.every(c => c.complete);
-  const eDone = explainDone(stage, record, rules), tDone = transferDone(stage, record, rules);
+  const eDone = explainDone(stage, record, rules), tDone = transferDone(stage, record);
   return {
     checks, experimentDone, explainDone: eDone, transferDone: tDone,
     initialStep: !record.prediction ? 'predict' : !experimentDone ? 'experiment' : 'explain',
@@ -68,7 +57,7 @@ export function nextExperimentAction(stage, checks, o = {}) {
       : act('#th-slider', '把红线调到 55', '拖动阈值滑块，把红线调到小区夜间标准 55 dB。');
     return Number.isInteger(o.threshold) && Math.abs(o.threshold - 55) >= 5
       ? act('#run-monitor', '用新阈值再运行一次', '数据还是同一晚，只换了阈值。再运行一次，比较提示次数。')
-      : act('#th-slider', '换一个阈值（如45或65）', '把红线拖到一个明显不同的位置（比55低或高至少5），再运行比较。');
+      : act('#th-slider', '把红线调到 45 再试', '把红线拖到45 dB（或另一个与55相差至少5 dB的位置），再运行比较。');
   }
   if (stage === 'design') {
     if (o.running) return act(null, '', '正在运行4天：看湿度曲线有没有跑出绿色带。');
@@ -83,40 +72,25 @@ export function nextExperimentAction(stage, checks, o = {}) {
   return act(null, '', '');
 }
 
-/** 解释卡片的顺序：每个解释项一张卡，迁移题一张（阈值关为4张案例卡）。 */
-export function cardKeys(stage, rules) {
-  const keys = explainKeys(stage, rules);
-  if (activities[stage].transfer.type === 'cases') return [...keys, ...Object.keys(rules.thresholdCases).map(k => 'case:' + k)];
-  return [...keys, 'transfer'];
-}
-export function cardAnswered(stage, record, key) {
-  if (key === 'transfer') return typeof record.transfer === 'string' && !!record.transfer;
-  if (key.startsWith('case:')) return !!(record.transfer && typeof record.transfer === 'object' && record.transfer[key.slice(5)]);
-  return !!record.explain?.[key];
-}
-/** 提交后哪些卡片需要修订（与 rules.assess 的错误信息对应）。 */
-export function wrongCards(stage, record, errors, rules) {
-  const m = rules.messages[stage], out = [];
-  for (const k of explainKeys(stage, rules)) {
-    if (stage === 'life' ? errors.includes(m.sort) && record.explain?.[k] !== rules.lifeCards[k].kind : errors.includes(m[k])) out.push(k);
-  }
-  if (errors.includes(m.transfer)) {
-    if (activities[stage].transfer.type === 'cases') { for (const [k, c] of Object.entries(rules.thresholdCases)) if (record.transfer?.[k] !== c.answer) out.push('case:' + k); }
-    else out.push('transfer');
-  }
-  return out;
+/** 检验后需要修订的卡片（直接来自 rules.assess 的 wrong）。 */
+export function wrongCards(stage, record, rules) {
+  return rules.assess(stage, { ...record, submitted: true }).wrong;
 }
 /**
- * 解释步骤的下一张卡与唯一主要操作：未答的卡 → 需要修订且还没改的卡 → 检验按钮。
- * revisit：上次检验标出、学生尚未改动的卡片。
+ * 说清楚环节的下一张卡与唯一主要操作：
+ * 通过后 → 站末句块 → 回到地图；方案不合格 → 回去改方案；否则按卡片顺序找“没答的或需修订的”→ 检验按钮。
+ * 只定位要操作的卡片（整组选项），不指向某个选项，概念判断留给学生。
  */
-export function explainTarget(stage, record, errors, rules, revisit = []) {
-  const m = rules.messages[stage];
-  if (stage === 'design' && errors.includes(m.design)) return { card: 'summary', selector: '#back-to-experiment', label: '回去调整浇水方案' };
-  const keys = cardKeys(stage, rules);
-  const open = keys.find(k => !cardAnswered(stage, record, k));
-  if (open) return { card: open, selector: `[data-card="${open}"] .card-options`, label: '选一个答案' };
-  const fix = keys.find(k => revisit.includes(k));
-  if (fix) return { card: fix, selector: `[data-card="${fix}"] .card-options`, label: '再想想，改一改' };
+export function explainTarget(stage, record, rules, { revisit = [], reviewed = false, passed = false } = {}) {
+  if (passed) {
+    const r = record.reflect || {};
+    if (!r.saw) return { card: 'reflect', selector: '#reflect-saw', label: '选一句：你看到了什么' };
+    if (!r.so) return { card: 'reflect', selector: '#reflect-so', label: '再选一句：所以你认为' };
+    if (!record.reflectDone) return { card: 'reflect', selector: '#reflect-done', label: '就这样说' };
+    return { card: 'summary', selector: '#next', label: '回到地图' };
+  }
+  if (reviewed && stage === 'design' && !rules.assess(stage, { ...record, submitted: true }).parts.design) return { card: 'summary', selector: '#back-to-experiment', label: '回去调整浇水方案' };
+  const next = cardKeys(stage, rules).find(k => !cardAnswered(stage, record, k) || revisit.includes(k));
+  if (next) return { card: next, selector: `[data-card="${next}"] .card-options`, label: revisit.includes(next) ? '再想想，改一改' : '选一个答案' };
   return { card: 'summary', selector: '#check', label: '检验我的解释' };
 }

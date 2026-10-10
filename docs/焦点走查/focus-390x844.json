@@ -1,11 +1,96 @@
 {
- "tag": "390x844-demo",
+ "tag": "390x844",
  "viewport": [
   390,
   844
  ],
- "mode": "demo",
+ "mode": "student",
  "steps": [
+  {
+   "step": "登录：选班级",
+   "count": 1,
+   "id": "class-tiles",
+   "tag": "div",
+   "text": "601班602班603班604班605班606班",
+   "tip": "先点你的班级",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    29,
+    157,
+    333,
+    124
+   ],
+   "ok": true
+  },
+  {
+   "step": "登录：点名字",
+   "count": 1,
+   "id": "name-grid",
+   "tag": "div",
+   "text": "林小雨周一帆陈子墨王乐乐赵晨曦孙可可吴思远郑星辰",
+   "tip": "找到并点你的名字",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    29,
+    375,
+    333,
+    232
+   ],
+   "ok": true
+  },
+  {
+   "step": "登录：手动填写",
+   "count": 1,
+   "id": "manual-box",
+   "tag": "div",
+   "text": "",
+   "tip": "写下你的名字",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    29,
+    455,
+    333,
+    50
+   ],
+   "ok": true
+  },
+  {
+   "step": "登录：确认身份",
+   "count": 1,
+   "id": "login-submit",
+   "tag": "button",
+   "text": "确认身份，出发巡查 →",
+   "tip": "确认无误，出发！",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    29,
+    547,
+    333,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "登录：同名确认",
+   "count": 1,
+   "id": "same-choices",
+   "tag": "div",
+   "text": "是我：王乐乐（名单）",
+   "tip": "选一个",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    41,
+    581,
+    309,
+    42
+   ],
+   "ok": true
+  },
   {
    "step": "地图：第1站",
    "count": 1,
@@ -17,7 +102,7 @@
    "unobscured": true,
    "rect": [
     147,
-    112,
+    72,
     96,
     96
    ],
@@ -34,7 +119,7 @@
    "unobscured": true,
    "rect": [
     147,
-    112,
+    72,
     96,
     96
    ],
@@ -51,7 +136,7 @@
    "unobscured": true,
    "rect": [
     36,
-    385,
+    345,
     318,
     181
    ],
@@ -68,7 +153,7 @@
    "unobscured": true,
    "rect": [
     36,
-    385,
+    345,
     318,
     181
    ],
@@ -85,7 +170,7 @@
    "unobscured": true,
    "rect": [
     14,
-    576,
+    536,
     362,
     61
    ],
@@ -102,7 +187,7 @@
    "unobscured": true,
    "rect": [
     14,
-    582,
+    682,
     362,
     61
    ],
@@ -119,9 +204,43 @@
    "unobscured": true,
    "rect": [
     258,
-    698,
+    674,
     118,
     48
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 说清楚：卡片 compare",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "一致：结果和我预测的一样不一致：结果和我预测的不",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    420,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 说清楚：卡片 evidence",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "计算格出现了「66.7 > 55 → 超标」监测",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    222,
+    318,
+    181
    ],
    "ok": true
   },
@@ -130,13 +249,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "采集到的声音数据（如62.4 dB）声音采集装置",
+   "text": "声音采集装置（麦克风）比较后得到的“未超标”采集",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    300,
+    260,
     318,
     181
    ],
@@ -147,15 +266,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "与55 dB比较后得出的结果：超标或未超标数据处",
+   "text": "数据处理装置（芯片）还没比较的声音读数本身与55",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    300,
+    260,
     318,
-    206
+    181
    ],
    "ok": true
   },
@@ -164,15 +283,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "显示的噪声数值，以及超标时发出的提示显示屏这个设",
+   "text": "屏幕上的数值和超标时的提示显示屏和报警器这两台设",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    300,
+    260,
     318,
-    206
+    181
    ],
    "ok": true
   },
@@ -181,13 +300,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "水壶外壳 → 加热盘 → 插头测到的水温数据 →",
+   "text": "冷水 → 电流 → 热量温度传感器 → 控制芯片",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    262,
+    222,
     318,
     206
    ],
@@ -204,7 +323,7 @@
    "unobscured": true,
    "rect": [
     36,
-    237,
+    197,
     148,
     48
    ],
@@ -215,13 +334,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "采集到的声音数据（如62.4 dB）声音采集装置",
+   "text": "✗ 声音采集装置（麦克风）比较后得到的“未超标”",
    "tip": "再想想，改一改",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    300,
+    260,
     318,
     181
    ],
@@ -232,20 +351,37 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "采集到的声音数据（如62.4 dB）声音采集装置",
+   "text": "✗ 声音采集装置（麦克风）比较后得到的“未超标”",
    "tip": "再想想，改一改",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    300,
+    260,
     318,
     181
    ],
    "ok": true
   },
   {
-   "step": "flow 再次检验",
+   "step": "flow 说清楚：卡片 transfer",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "光照传感器 → 控制芯片 → 灯泡阳光 → 电流",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    222,
+    318,
+    206
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 检验（第2次）",
    "count": 1,
    "id": "check",
    "tag": "button",
@@ -255,8 +391,59 @@
    "unobscured": true,
    "rect": [
     36,
-    237,
+    197,
     148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 句块：reflect-saw",
+   "count": 1,
+   "id": "reflect-saw",
+   "tag": "div",
+   "text": "三格里依次出现了读数、比较结果和提示只有屏幕上的",
+   "tip": "选一句：你看到了什么",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    280,
+    318,
+    147
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 句块：reflect-so",
+   "count": 1,
+   "id": "reflect-so",
+   "tag": "div",
+   "text": "输入、计算、输出都有数据在流动数据就是监测器里的",
+   "tip": "再选一句：所以你认为",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    378,
+    318,
+    185
+   ],
+   "ok": true
+  },
+  {
+   "step": "flow 句块：完成",
+   "count": 1,
+   "id": "reflect-done",
+   "tag": "button",
+   "text": "就这样说 ✓",
+   "tip": "就这样说",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    421,
+    130,
     48
    ],
    "ok": true
@@ -272,7 +459,7 @@
    "unobscured": true,
    "rect": [
     85,
-    541,
+    637,
     220,
     48
    ],
@@ -289,7 +476,7 @@
    "unobscured": true,
    "rect": [
     147,
-    254,
+    214,
     96,
     96
    ],
@@ -306,7 +493,7 @@
    "unobscured": true,
    "rect": [
     36,
-    362,
+    322,
     318,
     119
    ],
@@ -323,7 +510,7 @@
    "unobscured": true,
    "rect": [
     36,
-    362,
+    322,
     318,
     119
    ],
@@ -340,7 +527,7 @@
    "unobscured": true,
    "rect": [
     14,
-    495,
+    455,
     362,
     58
    ],
@@ -357,7 +544,7 @@
    "unobscured": true,
    "rect": [
     14,
-    569,
+    529,
     362,
     54
    ],
@@ -374,7 +561,7 @@
    "unobscured": true,
    "rect": [
     29,
-    228,
+    188,
     332,
     187
    ],
@@ -391,9 +578,43 @@
    "unobscured": true,
    "rect": [
     258,
-    730,
+    711,
     118,
     48
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 说清楚：卡片 compare",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "一致：结果和我预测的一样不一致：结果和我预测的不",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    465,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 说清楚：卡片 evidence",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "声音只有圆点上那几个数值，其余都是猜的圆点之间声",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    254,
+    318,
+    257
    ],
    "ok": true
   },
@@ -402,32 +623,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "曲线比点好看声音在一定范围内连续变化，任意两个时",
+   "text": "曲线看起来更清楚、更好看，所以更合适声音随时间连",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    262,
+    222,
     318,
-    206
-   ],
-   "ok": true
-  },
-  {
-   "step": "wave 说清楚：卡片 points",
-   "count": 1,
-   "id": "card-options",
-   "tag": "div",
-   "text": "声音只有这几个数值测错的数据在某些时刻记下的读数",
-   "tip": "选一个答案",
-   "inView": true,
-   "unobscured": true,
-   "rect": [
-    36,
-    230,
-    318,
-    206
+    232
    ],
    "ok": true
   },
@@ -436,13 +640,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "没有气温，因为那时没测在20 ℃到24 ℃之间，",
+   "text": "在20 ℃到24 ℃之间，约22 ℃没有气温，因",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    294,
+    254,
     318,
     181
    ],
@@ -459,8 +663,59 @@
    "unobscured": true,
    "rect": [
     36,
-    237,
+    197,
     148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 句块：reflect-saw",
+   "count": 1,
+   "id": "reflect-saw",
+   "tag": "div",
+   "text": "两个圆点之间也读到了数值两个圆点之间什么也没有",
+   "tip": "选一句：你看到了什么",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    248,
+    318,
+    121
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 句块：reflect-so",
+   "count": 1,
+   "id": "reflect-so",
+   "tag": "div",
+   "text": "声音是连续量，用曲线表示更合适散点就能表示全部的",
+   "tip": "再选一句：所以你认为",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    281,
+    318,
+    121
+   ],
+   "ok": true
+  },
+  {
+   "step": "wave 句块：完成",
+   "count": 1,
+   "id": "reflect-done",
+   "tag": "button",
+   "text": "就这样说 ✓",
+   "tip": "就这样说",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    324,
+    130,
     48
    ],
    "ok": true
@@ -476,7 +731,7 @@
    "unobscured": true,
    "rect": [
     85,
-    541,
+    622,
     220,
     48
    ],
@@ -493,7 +748,7 @@
    "unobscured": true,
    "rect": [
     147,
-    396,
+    356,
     96,
     96
    ],
@@ -510,7 +765,7 @@
    "unobscured": true,
    "rect": [
     36,
-    362,
+    322,
     318,
     119
    ],
@@ -527,7 +782,7 @@
    "unobscured": true,
    "rect": [
     36,
-    362,
+    322,
     318,
     119
    ],
@@ -595,9 +850,43 @@
    "unobscured": true,
    "rect": [
     258,
-    772,
+    761,
     118,
     48
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 compare",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "一致：结果和我预测的一样不一致：结果和我预测的不",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    458,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 evidence",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "只会一百一百地跳着变化在这个范围内连续变化，能取",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    292,
+    318,
+    206
    ],
    "ok": true
   },
@@ -606,15 +895,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "不是：只有几种固定的状态是连续量：能取到范围内的",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    338,
+    336,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -623,15 +912,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "不是：只能是一个一个的整数不是：只有几种固定的状",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    300,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -640,15 +929,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "是连续量：能取到范围内的中间数值不是：只有几种固",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    300,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -657,15 +946,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "不是：只能是一个一个的整数是连续量：能取到范围内",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    300,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -674,15 +963,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "不是：只能是一个一个的整数不是：只有几种固定的状",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    300,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -691,15 +980,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "不是：只能是一个一个的整数不是：只有几种固定的状",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    300,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -708,15 +997,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "是连续量：能取到范围内的中间数值不是：只能是一个",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    300,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -725,15 +1014,15 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "不会，指针直接跳过去会，车速连续变化，会经过中间",
+   "text": "只会经过10、20、30这样的整十数会，车速连续",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    294,
+    292,
     318,
-    206
+    181
    ],
    "ok": true
   },
@@ -748,7 +1037,7 @@
    "unobscured": true,
    "rect": [
     36,
-    237,
+    235,
     148,
     48
    ],
@@ -759,13 +1048,30 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "一致：结果和我预测的一样✗ 不一致：结果和我预测",
    "tip": "再想想，改一改",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    458,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 说清楚：卡片 compare",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "一致：结果和我预测的一样✗ 不一致：结果和我预测",
+   "tip": "再想想，改一改",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    458,
     318,
     119
    ],
@@ -776,20 +1082,20 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "是连续量不是连续量",
+   "text": "不是：只能是一个一个的整数不是：只有几种固定的状",
    "tip": "再想想，改一改",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    302,
+    300,
     318,
-    119
+    206
    ],
    "ok": true
   },
   {
-   "step": "life 再次检验",
+   "step": "life 检验（第2次）",
    "count": 1,
    "id": "check",
    "tag": "button",
@@ -799,8 +1105,59 @@
    "unobscured": true,
    "rect": [
     36,
-    237,
+    235,
     148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 句块：reflect-saw",
+   "count": 1,
+   "id": "reflect-saw",
+   "tag": "div",
+   "text": "光照经过了很多个不同读数光照只有亮、暗两种",
+   "tip": "选一句：你看到了什么",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    280,
+    318,
+    121
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 句块：reflect-so",
+   "count": 1,
+   "id": "reflect-so",
+   "tag": "div",
+   "text": "光照、水温是连续量，人数、开关不是能数出来的数据",
+   "tip": "再选一句：所以你认为",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    313,
+    318,
+    147
+   ],
+   "ok": true
+  },
+  {
+   "step": "life 句块：完成",
+   "count": 1,
+   "id": "reflect-done",
+   "tag": "button",
+   "text": "就这样说 ✓",
+   "tip": "就这样说",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    389,
+    130,
     48
    ],
    "ok": true
@@ -816,7 +1173,7 @@
    "unobscured": true,
    "rect": [
     85,
-    541,
+    637,
     220,
     48
    ],
@@ -833,7 +1190,7 @@
    "unobscured": true,
    "rect": [
     147,
-    538,
+    498,
     96,
     96
    ],
@@ -850,7 +1207,7 @@
    "unobscured": true,
    "rect": [
     36,
-    417,
+    377,
     318,
     181
    ],
@@ -867,7 +1224,7 @@
    "unobscured": true,
    "rect": [
     36,
-    417,
+    377,
     318,
     181
    ],
@@ -884,7 +1241,7 @@
    "unobscured": true,
    "rect": [
     14,
-    575,
+    535,
     362,
     54
    ],
@@ -896,12 +1253,12 @@
    "id": "fader.ctl.th-ctl",
    "tag": "label",
    "text": "阈值55 dB",
-   "tip": "换一个阈值（如45或65）",
+   "tip": "把红线调到 45 再试",
    "inView": true,
    "unobscured": true,
    "rect": [
     14,
-    495,
+    455,
     362,
     64
    ],
@@ -918,7 +1275,7 @@
    "unobscured": true,
    "rect": [
     14,
-    575,
+    535,
     362,
     54
    ],
@@ -935,9 +1292,43 @@
    "unobscured": true,
    "rect": [
     258,
-    684,
+    644,
     118,
     48
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 compare",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "一致：结果和我预测的一样不一致：结果和我预测的不",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    420,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 evidence",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "比较用的参考值变了，超过它的时段跟着变监测器第二",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    286,
+    318,
+    206
    ],
    "ok": true
   },
@@ -946,30 +1337,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "输入环节：阈值就是采集到的声音计算环节：把采集的",
+   "text": "输出环节：它就是提示音的音量大小计算环节：数据与",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    262,
-    318,
-    206
-   ],
-   "ok": true
-  },
-  {
-   "step": "threshold 说清楚：卡片 why",
-   "count": 1,
-   "id": "card-options",
-   "tag": "div",
-   "text": "那晚的声音变大了监测器坏了比较用的参考值变了，超",
-   "tip": "选一个答案",
-   "inView": true,
-   "unobscured": true,
-   "rect": [
-    36,
-    262,
+    222,
     318,
     206
    ],
@@ -980,13 +1354,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "烧水时100℃自动断电",
+   "text": "1秒100℃20℃",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    340,
+    327,
     318,
     181
    ],
@@ -997,13 +1371,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "冰箱冷藏区4℃",
+   "text": "压缩机4℃6℃",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    340,
+    300,
     318,
     181
    ],
@@ -1014,13 +1388,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "智能手环100次/min发出警报",
+   "text": "发出警报88次/min100次/min",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    367,
+    327,
     318,
     181
    ],
@@ -1031,15 +1405,32 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "高速公路100～120 km/h开车",
+   "text": "车速表100～120 km/h95 km/h",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    340,
+    327,
     318,
     181
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 说清楚：卡片 transfer",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "人离得更远时门就会开，开门次数可能变多传感器测距",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    254,
+    318,
+    206
    ],
    "ok": true
   },
@@ -1054,7 +1445,7 @@
    "unobscured": true,
    "rect": [
     36,
-    237,
+    197,
     148,
     48
    ],
@@ -1065,13 +1456,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "冰箱冷藏区4℃",
+   "text": "压缩机4℃✗ 6℃",
    "tip": "再想想，改一改",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    340,
+    300,
     318,
     181
    ],
@@ -1082,20 +1473,20 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "冰箱冷藏区4℃",
+   "text": "压缩机4℃✗ 6℃",
    "tip": "再想想，改一改",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    340,
+    300,
     318,
     181
    ],
    "ok": true
   },
   {
-   "step": "threshold 再次检验",
+   "step": "threshold 检验（第2次）",
    "count": 1,
    "id": "check",
    "tag": "button",
@@ -1105,8 +1496,59 @@
    "unobscured": true,
    "rect": [
     36,
-    237,
+    197,
     148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 句块：reflect-saw",
+   "count": 1,
+   "id": "reflect-saw",
+   "tag": "div",
+   "text": "同一晚的数据，换了阈值，提示次数变了换了阈值，提",
+   "tip": "选一句：你看到了什么",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    248,
+    318,
+    147
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 句块：reflect-so",
+   "count": 1,
+   "id": "reflect-so",
+   "tag": "div",
+   "text": "阈值是计算环节用来比较的参考值阈值就是测到的声音",
+   "tip": "再选一句：所以你认为",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    346,
+    318,
+    121
+   ],
+   "ok": true
+  },
+  {
+   "step": "threshold 句块：完成",
+   "count": 1,
+   "id": "reflect-done",
+   "tag": "button",
+   "text": "就这样说 ✓",
+   "tip": "就这样说",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    389,
+    130,
     48
    ],
    "ok": true
@@ -1122,7 +1564,7 @@
    "unobscured": true,
    "rect": [
     85,
-    541,
+    622,
     220,
     48
    ],
@@ -1139,7 +1581,7 @@
    "unobscured": true,
    "rect": [
     147,
-    680,
+    640,
     96,
     96
    ],
@@ -1150,15 +1592,15 @@
    "count": 1,
    "id": "card-options.think-options",
    "tag": "div",
-   "text": "打开，开始浇水保持关闭",
+   "text": "偏下限：30%—45%正中间：50%左右偏上限：",
    "tip": "选一个你的想法",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    385,
+    345,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -1167,15 +1609,15 @@
    "count": 1,
    "id": "card-options.think-options",
    "tag": "div",
-   "text": "打开，开始浇水保持关闭",
+   "text": "偏下限：30%—45%正中间：50%左右偏上限：",
    "tip": "选一个你的想法",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    385,
+    345,
     318,
-    119
+    181
    ],
    "ok": true
   },
@@ -1190,7 +1632,7 @@
    "unobscured": true,
    "rect": [
     14,
-    667,
+    627,
     362,
     69
    ],
@@ -1207,7 +1649,7 @@
    "unobscured": true,
    "rect": [
     14,
-    625,
+    706,
     362,
     56
    ],
@@ -1299,17 +1741,51 @@
    "ok": true
   },
   {
-   "step": "design 说清楚：卡片 role",
+   "step": "design 说清楚：卡片 compare",
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "测量土壤里有多少水让系统把湿度数据与它比较，决定",
+   "text": "一致：结果和我预测的一样不一致：结果和我预测的不",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    301,
+    481,
+    318,
+    119
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 说清楚：卡片 evidence",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "湿度的数值在0—100之间，最容易计算植物要的是",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    325,
+    318,
+    232
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 说清楚：卡片 role",
+   "count": 1,
+   "id": "card-options",
+   "tag": "div",
+   "text": "计算时与湿度数据比较，决定何时开水泵测量土壤里到",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    261,
     318,
     206
    ],
@@ -1320,13 +1796,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "永远不会浇水没有任何变化更早、更频繁地浇水，土壤",
+   "text": "没有变化，阈值只是一个设置更晚才浇水，土壤会变得",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    301,
+    261,
     318,
     181
    ],
@@ -1337,13 +1813,13 @@
    "count": 1,
    "id": "card-options",
    "tag": "div",
-   "text": "加热棒、水温、24 ℃水温数据、24 ℃、加热开",
+   "text": "24 ℃、水温数据、鱼缸里的鱼加热棒、水温数据、",
    "tip": "选一个答案",
    "inView": true,
    "unobscured": true,
    "rect": [
     36,
-    333,
+    293,
     318,
     181
    ],
@@ -1360,8 +1836,59 @@
    "unobscured": true,
    "rect": [
     36,
-    276,
+    236,
     148,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 句块：reflect-saw",
+   "count": 1,
+   "id": "reflect-saw",
+   "tag": "div",
+   "text": "阈值合适时，湿度一直留在绿色带里用光照、温度也能",
+   "tip": "选一句：你看到了什么",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    287,
+    318,
+    121
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 句块：reflect-so",
+   "count": 1,
+   "id": "reflect-so",
+   "tag": "div",
+   "text": "阈值要根据需求和数据来定阈值放在正中间就一定合适",
+   "tip": "再选一句：所以你认为",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    320,
+    318,
+    121
+   ],
+   "ok": true
+  },
+  {
+   "step": "design 句块：完成",
+   "count": 1,
+   "id": "reflect-done",
+   "tag": "button",
+   "text": "就这样说 ✓",
+   "tip": "就这样说",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    36,
+    363,
+    130,
     48
    ],
    "ok": true
@@ -1377,7 +1904,7 @@
    "unobscured": true,
    "rect": [
     111,
-    541,
+    622,
     169,
     48
    ],
@@ -1399,9 +1926,244 @@
     96
    ],
    "ok": true
+  },
+  {
+   "step": "地图：前往巡查报告站",
+   "count": 1,
+   "id": "place-quiz",
+   "tag": "button",
+   "text": "📋巡查报告站",
+   "tip": "去完成20题考核",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    147,
+    598,
+    96,
+    96
+   ],
+   "ok": true
+  },
+  {
+   "step": "报告站：开始考核",
+   "count": 1,
+   "id": "end-quiz",
+   "tag": "button",
+   "text": "开始20题考核",
+   "tip": "开始20题考核",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    38,
+    726,
+    151,
+    48
+   ],
+   "ok": true
+  },
+  {
+   "step": "考核：第1题",
+   "count": 1,
+   "id": "question",
+   "tag": "fieldset",
+   "text": "1 · 数据在系统中流动噪声超标时监测器给管理部",
+   "tip": "选一个答案",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    38,
+    354,
+    314,
+    261
+   ],
+   "ok": true
+  },
+  {
+   "step": "考核：下一页",
+   "count": 1,
+   "id": "next-exam",
+   "tag": "button",
+   "text": "下一页",
+   "tip": "下一页",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    232,
+    734,
+    78,
+    42
+   ],
+   "ok": true
+  },
+  {
+   "step": "考核：下一页",
+   "count": 1,
+   "id": "next-exam",
+   "tag": "button",
+   "text": "下一页",
+   "tip": "下一页",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    232,
+    734,
+    78,
+    42
+   ],
+   "ok": true
+  },
+  {
+   "step": "考核：下一页",
+   "count": 1,
+   "id": "next-exam",
+   "tag": "button",
+   "text": "下一页",
+   "tip": "下一页",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    232,
+    734,
+    78,
+    42
+   ],
+   "ok": true
+  },
+  {
+   "step": "考核：提交",
+   "count": 1,
+   "id": "submit-exam",
+   "tag": "button",
+   "text": "提交20题",
+   "tip": "检查后提交",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    126,
+    734,
+    97,
+    42
+   ],
+   "ok": true
+  },
+  {
+   "step": "考核：成绩页",
+   "count": 1,
+   "id": "return-study",
+   "tag": "button",
+   "text": "回到关卡，检验薄弱处",
+   "tip": "回到地图",
+   "inView": true,
+   "unobscured": true,
+   "rect": [
+    38,
+    425,
+    190,
+    42
+   ],
+   "ok": true
   }
  ],
  "failures": [],
  "consoleErrors": [],
- "points": "★ 50"
+ "points": "积分 50",
+ "server": {
+  "points": 50,
+  "stars": 9,
+  "quizAttempts": 1,
+  "quizScore": 15,
+  "stations": {
+   "flow": {
+    "stars": 1,
+    "firstPass": false,
+    "explainFirst": false,
+    "transferFirst": false,
+    "attempts": 2,
+    "prediction": "all",
+    "predictionCorrect": true,
+    "tagsFirst": [
+     "device-as-data"
+    ],
+    "reflect": {
+     "saw": "ipo",
+     "so": "all"
+    },
+    "hintLevel": 1
+   },
+   "wave": {
+    "stars": 3,
+    "firstPass": true,
+    "explainFirst": true,
+    "transferFirst": true,
+    "attempts": 1,
+    "prediction": "scatter",
+    "predictionCorrect": false,
+    "tagsFirst": [],
+    "reflect": {
+     "saw": "between",
+     "so": "continuous"
+    },
+    "hintLevel": 0
+   },
+   "life": {
+    "stars": 1,
+    "firstPass": false,
+    "explainFirst": false,
+    "transferFirst": true,
+    "attempts": 2,
+    "prediction": "gradual",
+    "predictionCorrect": true,
+    "tagsFirst": [
+     "no-compare",
+     "state-continuous"
+    ],
+    "reflect": {
+     "saw": "many",
+     "so": "continuous"
+    },
+    "hintLevel": 1
+   },
+   "threshold": {
+    "stars": 1,
+    "firstPass": false,
+    "explainFirst": false,
+    "transferFirst": true,
+    "attempts": 2,
+    "prediction": "same",
+    "predictionCorrect": false,
+    "tagsFirst": [
+     "threshold-is-data"
+    ],
+    "reflect": {
+     "saw": "diff",
+     "so": "compute"
+    },
+    "hintLevel": 1
+   },
+   "design": {
+    "stars": 3,
+    "firstPass": true,
+    "explainFirst": true,
+    "transferFirst": true,
+    "attempts": 1,
+    "prediction": "mid",
+    "predictionCorrect": false,
+    "tagsFirst": [],
+    "reflect": {
+     "saw": "band",
+     "so": "need"
+    },
+    "hintLevel": 0
+   }
+  },
+  "checks": {
+   "flow": 2,
+   "wave": 1,
+   "life": 2,
+   "threshold": 2,
+   "design": 1
+  },
+  "teacherHasStudent": true,
+  "testModePlaces": 6
+ }
 }

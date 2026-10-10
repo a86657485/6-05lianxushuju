@@ -3,12 +3,13 @@
  * 任何时刻只突出一个主要操作（focus.mjs），判定、积分与记录沿用 rules.js / 课堂服务。
  */
 import { ClassroomSync, api, escape } from './sync.mjs?v=1';
-import { activities, takeaways, places } from './activities.mjs?v=2';
-import { experimentClasses } from './experiments.mjs?v=2';
-import { learningProgress, nextExperimentAction, explainTarget, explainKeys, cardKeys, cardAnswered, wrongCards } from './journey.mjs?v=2';
+import { activities, takeaways, places } from './activities.mjs?v=3';
+import { experimentClasses } from './experiments.mjs?v=3';
+import { learningProgress, nextExperimentAction, explainTarget, explainKeys, cardKeys, cardAnswered } from './journey.mjs?v=3';
+import { cardSpec, dataLines, conceptHint, ruledKey } from './cards.mjs?v=3';
 import { QuizView } from './quiz.mjs?v=1';
 import { Microphone } from './microphone.mjs?v=1';
-import { renderStageReference, renderExamReference } from './teacher-guide.mjs?v=1';
+import { renderStageReference, renderExamReference } from './teacher-guide.mjs?v=3';
 import { RewardChallenge } from './reward.mjs?v=1';
 import { mapBackground, mapPath, placeIcon, sprite, pickCharacter, xiaodiSvg, CHARACTERS } from './world.mjs?v=2';
 import { setFocus, place as placeCoach, spotlight } from './focus.mjs?v=2';
@@ -22,7 +23,7 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const ORDER = [...R.stageIds, 'quiz'];
 const STEPS = [['predict', '想一想'], ['experiment', '做实验'], ['explain', '说清楚']];
 let state = null, drafts = {}, stage = 'flow', learningStep = 'predict', experiment = null, screen = 'login';
-let hintLevel = {}, revisit = {}, reviewed = {}, quiz = null, reward = null, live = null, liveAt = 0, liveTimer = null, mic = null, micLevel = null;
+let opLevel = {}, revisit = {}, reviewed = {}, quiz = null, reward = null, live = null, liveAt = 0, liveTimer = null, mic = null, micLevel = null;
 let character = 'maleAdventurer', avatarAt = 'flow', walking = false, shownCard = null, sayText = '', sayTone = '', hintText = '', mapNote = '';
 let login = { classId: '', id: '', manual: false };
 
@@ -32,18 +33,27 @@ const sync = new ClassroomSync((message, pending) => { $('sync-status').textCont
 function toast(message) { $('toast').textContent = message; $('toast').hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => $('toast').hidden = true, 3200); }
 function storage() { return local ? sessionStorage : localStorage; }
 function draftKey() { return 'lesson5-drafts:' + state.student.id + ':' + state.round; }
-function emptyTransfer(st) { return activities[st].transfer.type === 'cases' ? {} : ''; }
 function draft(st = stage) {
   const r = drafts[st] ||= {};
   r.prediction ||= ''; r.trials = Array.isArray(r.trials) ? r.trials : []; r.explain = r.explain && typeof r.explain === 'object' ? r.explain : {};
-  if (r.transfer === undefined || (activities[st].transfer.type === 'cases') !== (typeof r.transfer === 'object')) r.transfer = emptyTransfer(st);
-  r.hints ||= 0; r.submitted = r.submitted === true; return r;
+  if (typeof r.transfer !== 'string') r.transfer = '';
+  r.transferItem = r.transferItem === 'B' ? 'B' : 'A';
+  r.ruledOut = r.ruledOut && typeof r.ruledOut === 'object' ? r.ruledOut : {};
+  r.hints ||= 0; r.conceptHints ||= 0; r.conceptHintLevel ||= 0; r.submitted = r.submitted === true; return r;
 }
 function persist(send = true) {
   const d = draft(); d.editedAt = Date.now();
   try { storage().setItem(draftKey(), JSON.stringify(drafts)); if (local) storage().setItem('lesson5-local-state:' + mode, JSON.stringify(state)); } catch { toast('本机存储不足，请告诉老师'); }
-  if (send && mode === 'student') sync.enqueue(stage, d);
+  if (send && mode === 'student') { const { firstCheck, lastTrace, ...rest } = d; sync.enqueue(stage, stage === 'wave' && lastTrace ? { ...rest, lastTrace } : rest); }
 }
+/** 一站的证据摘要与证据星：本机看到过首次提交就本机计算（与服务端同一规则），否则用服务端摘要。 */
+function summaryOf(st) {
+  const d = drafts[st] || {}, srv = !local ? state?.records?.[st]?.summary : null;
+  if (srv && !d.firstCheck) return srv;
+  return R.stageSummary(st, { first: d.prediction ? { prediction: d.prediction } : null, firstSubmitted: d.firstCheck || null, lastSubmitted: d.submitted ? d : null, latest: d, attempts: d.attempts || 0 }, doneStage(st));
+}
+const starsOf = st => doneStage(st) ? Math.max(1, summaryOf(st).stars) : 0;
+const starText = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const awarded = st => (state?.awards || []).some(a => a.stage === st);
 const passedNow = st => { const d = drafts[st]; return !!d && d.submitted === true && R.assess(st, d).pass; };
 const doneStage = st => awarded(st) || passedNow(st);
@@ -154,8 +164,9 @@ function enter(s) {
 function renderHud() {
   if (!state) return;
   $('hud-avatar-img').src = sprite(character, 'idle');
-  $('hud-progress').innerHTML = R.stages.map((s, i) => `<li class="${doneStage(s.id) ? 'done' : ''} ${screen === 'level' && stage === s.id ? 'here' : ''}" title="${i + 1} ${s.name}">${doneStage(s.id) ? '★' : i + 1}</li>`).join('') + `<li class="quiz ${(state.quizAttempts || []).length ? 'done' : ''}" title="20题巡查报告">📋</li>`;
-  $('points').textContent = '★ ' + (state.points || 0);
+  $('hud-progress').innerHTML = R.stages.map((s, i) => { const n = starsOf(s.id); return `<li class="${n ? 'done s' + n : ''} ${screen === 'level' && stage === s.id ? 'here' : ''}" title="${i + 1} ${s.name}${n ? ' · 证据星 ' + starText(n) : ''}">${n ? n + '★' : i + 1}</li>`; }).join('') + `<li class="quiz ${(state.quizAttempts || []).length ? 'done' : ''}" title="20题巡查报告">📋</li>`;
+  $('points').textContent = '积分 ' + (state.points || 0);
+  $('stars').textContent = '⭐ ' + R.stageIds.reduce((n, s) => n + starsOf(s), 0) + '/15';
   $('sound').textContent = sound.on ? '🔊' : '🔇';
   $('fresh').hidden = $('trials-btn').hidden = $('story-btn').hidden = screen !== 'level';
 }
@@ -165,9 +176,17 @@ $('hud-avatar').onclick = () => { const keys = Object.keys(CHARACTERS); characte
 $('help').onclick = () => {
   sound.play('hint');
   if (screen === 'level') {
-    const d = draft(); d.hints++; hintLevel[stage] = Math.min(3, (hintLevel[stage] || 0) + 1); persist();
-    const level = hintLevel[stage];
-    hintText = `提示 ${level}/3：${activities[stage].hints[level - 1]}`;
+    const d = draft();
+    if (learningStep === 'explain' && !passedNow(stage)) {
+      // 想法提示：观察 → 思路 → 具体帮助（第3级记为“有帮助完成”，只影响证据星，不扣积分）
+      d.conceptHints++; d.conceptHintLevel = Math.min(3, (d.conceptHintLevel || 0) + 1); persist();
+      const level = d.conceptHintLevel;
+      hintText = `想法提示 ${level}/3：${conceptHint(stage, level, d, R)}${level === 3 ? '（用了具体帮助，本站记为“有帮助完成”）' : ''}`;
+    } else if (learningStep === 'experiment') {
+      // 操作提示可以直接说，不计入证据星
+      d.hints++; opLevel[stage] = Math.min(3, (opLevel[stage] || 0) + 1); persist();
+      hintText = `操作提示 ${opLevel[stage]}/3：${activities[stage].opHints[opLevel[stage] - 1]}`;
+    } else hintText = learningStep === 'predict' ? '凭你现在的想法选一个，没有对错；实验会帮你检验它。' : '看看亮着的按钮。';
     renderBubble();
   } else if (screen === 'map') { mapNote = '亮着光圈、有小手指着的地点，就是下一站。点它出发！'; renderMap(); }
   spotlight();
@@ -182,7 +201,7 @@ function renderMap() {
   const placeHtml = ORDER.map((k, i) => {
     const p = places[k], done = k === 'quiz' ? (state.quizAttempts || []).length > 0 : doneStage(k), open = unlocked(k);
     return `<button type="button" class="place ${done ? 'done' : ''} ${open ? '' : 'locked'} ${k === target ? 'next' : ''}" id="place-${k}" data-place="${k}" style="--x:${p.x};--y:${p.y}" aria-label="${k === 'quiz' ? '' : '第' + (i + 1) + '站 '}${p.name}${done ? '（已完成）' : open ? '' : '（未解锁）'}">
-      <span class="place-icon">${placeIcon(k)}<i class="place-badge">${done ? '★' : open ? (k === 'quiz' ? '📋' : i + 1) : '🔒'}</i></span><span class="place-name">${p.name}</span></button>`;
+      <span class="place-icon">${placeIcon(k)}<i class="place-badge">${done ? (k === 'quiz' ? '✓' : starsOf(k) + '★') : open ? (k === 'quiz' ? '📋' : i + 1) : '🔒'}</i></span><span class="place-name">${p.name}</span></button>`;
   }).join('');
   const a = places[avatarAt] || places.flow;
   $('map-world').innerHTML = mapBackground() + mapPath(ORDER) + placeHtml + `<img id="map-avatar" class="map-avatar" alt="" src="${sprite(character, 'idle')}" style="--x:${a.x};--y:${a.y}">`;
@@ -264,7 +283,7 @@ function showStage(st) {
   const p = learningProgress(st, d, R);
   learningStep = p.initialStep;
   if (learningStep === 'explain' && !reviewed[st] && d.submitted) reviewed[st] = true;
-  if (reviewed[st] && !revisit[st]) revisit[st] = wrongCards(st, d, R.assess(st, { ...d, submitted: true }).errors, R);
+  if (reviewed[st] && !revisit[st]) revisit[st] = d.submitted && !passedNow(st) ? R.assess(st, d).wrong.filter(k => k !== 'transfer') : [];
   pose(learningStep === 'predict' ? 'think' : 'idle');
   renderLevel();
 }
@@ -299,7 +318,7 @@ function renderBubble() {
   let main = '';
   if (learningStep === 'predict') main = d.prediction ? '这是你最初的想法，已经保留。' : '先凭第一感觉选一个，不扣分。';
   else if (learningStep === 'experiment') main = nextExperimentAction(stage, learningProgress(stage, d, R).checks, experiment?.options() || {}).instruction;
-  else main = passedNow(stage) ? '本站已通过！' : reviewed[stage] && (revisit[stage] || []).length ? '标红的卡片还要再想想。根据实验结果改一改。' : '一张卡一个问题。想想刚才的实验，选出你的答案。';
+  else main = passedNow(stage) ? (d.reflectDone ? '本站已通过！' : '通过检验！最后用句块说一句你的收获。') : reviewed[stage] && (revisit[stage] || []).length ? '标红的卡片要再想想：读一读反馈，回看你的数据，再改。' : '一张卡一个问题。依据你自己的实验数据作答。';
   $('say-main').textContent = main;
   $('say-sub').textContent = hintText || sayText;
   $('say-sub').className = hintText ? 'hint' : sayTone;
@@ -325,63 +344,67 @@ function renderThink() {
 $('go-explain').onclick = () => { sound.play('tap'); setStep('explain'); };
 $('to-map').onclick = () => showMap();
 
-/* 说清楚：一张卡一个问题，选完自动翻到下一张 */
+/* 说清楚：一张卡一个问题，选完自动翻到下一张；证据卡用学生自己的数据，答错后划掉并给针对性反馈 */
+const seedOf = () => state?.student?.id || mode;
+function targetNow() {
+  const d = draft();
+  return explainTarget(stage, d, R, { revisit: revisit[stage] || [], reviewed: !!reviewed[stage], passed: passedNow(stage) });
+}
 function cardHtml(key) {
-  const a = activities[stage], d = draft(), ex = a.explain, keys = cardKeys(stage, R), n = keys.indexOf(key) + 1;
-  const wrong = reviewed[stage] && (revisit[stage] || []).includes(key), m = R.messages[stage];
-  const opt = (v, label, on) => `<button type="button" class="opt" data-key="${escape(key)}" data-value="${escape(v)}" aria-pressed="${on}">${escape(label)}</button>`;
-  let kicker = `说清楚 ${n}/${keys.length}`, visual = '', q = '', opts = '', msg = '';
-  if (key === 'transfer') {
-    kicker += ' · 新情境'; q = a.transfer.question; opts = a.transfer.options.map(([v, l]) => opt(v, l, d.transfer === v)).join(''); msg = m.transfer;
-  } else if (key.startsWith('case:')) {
-    const c = R.thresholdCases[key.slice(5)], idx = Object.keys(R.thresholdCases).indexOf(key.slice(5));
-    kicker += ' · 找阈值'; visual = `<p class="case-text">案例${idx + 2}：${escape(c.text)}</p>`; q = '系统用来比较的参考值（阈值）是哪一个？';
-    opts = c.options.map(o => opt(o, o, d.transfer?.[key.slice(5)] === o)).join(''); msg = m.transfer;
-  } else if (ex.type === 'flow') {
-    const node = ex.nodes.find(nn => nn[0] === key);
-    visual = `<div class="mini-ipo">${ex.nodes.map(([k, t]) => `<span class="${k === key ? 'on' : ''} ${d.explain[k] ? 'filled' : ''}">${t}</span>`).join('<i>→</i>')}</div>`;
-    q = `「${node[1]}」环节里流动的数据是？`; opts = node[2].map(([v, l]) => opt(v, l, d.explain[key] === v)).join(''); msg = m[key];
-  } else if (ex.type === 'sort') {
-    const c = R.lifeCards[key];
-    kicker = `数据卡 ${n}/${keys.length - 1}`; visual = `<p class="data-card">${escape(c.label)}</p>`; q = '它是连续量吗？';
-    opts = opt('c', '是连续量', d.explain[key] === 'c') + opt('d', '不是连续量', d.explain[key] === 'd'); msg = m.sort;
-  } else {
-    const it = ex.items.find(i => i[0] === key); q = it[1]; opts = it[2].map(([v, l]) => opt(v, l, d.explain[key] === v)).join(''); msg = m[key];
-  }
-  return `<div class="qcard ${wrong ? 'needs-revision' : ''}" data-card="${escape(key)}" data-explain="${escape(key)}"><p class="kicker">${kicker}</p>${visual}<h2>${escape(q)}</h2><div class="card-options">${opts}</div>${wrong ? `<p class="card-msg">✗ ${escape(msg)}</p>` : ''}</div>`;
+  const d = draft(), sp = cardSpec(stage, key, d, R, seedOf());
+  const wrong = reviewed[stage] && (revisit[stage] || []).includes(key);
+  const prevWrong = key === 'transfer' && d.lastTransfer && d.lastTransfer.item !== d.transferItem ? d.lastTransfer : null;
+  const chosen = key === 'transfer' ? d.transfer : d.explain[key];
+  const opts = sp.options.map(o => `<button type="button" class="opt ${o.ruledOut ? 'ruled' : ''}" data-key="${escape(key)}" data-value="${escape(o.value)}" aria-pressed="${chosen === o.value}" ${o.ruledOut ? 'disabled aria-disabled="true"' : ''}>${o.ruledOut ? '✗ ' : ''}${escape(o.label)}</button>`).join('');
+  let msg = '';
+  if (wrong) msg = `<div class="card-msg"><p>✗ ${escape(sp.feedback(chosen))}</p>${key === 'compare' ? '' : `<p class="my-data"><b>我的数据</b>${dataLines(stage, d, R).map(escape).join('<br>')}</p>`}</div>`;
+  if (prevWrong) { const old = cardSpec(stage, 'transfer', { ...d, transferItem: prevWrong.item }, R, seedOf()); msg = `<div class="card-msg"><p>✗ 上一个情境你选了「${escape(old.options.find(o => o.value === prevWrong.value)?.label || '')}」：${escape(old.feedback(prevWrong.value))}</p><p class="note">换一个新情境，用同样的道理再判断一次。</p></div>`; }
+  return `<div class="qcard ${wrong || (prevWrong && !d.transfer) ? 'needs-revision' : ''}" data-card="${escape(key)}" data-explain="${escape(key)}"><p class="kicker">${escape(sp.kicker)}</p>${sp.visual}<h2>${escape(sp.question)}</h2><div class="card-options">${opts}</div>${msg}</div>`;
+}
+function reflectHtml() {
+  const d = draft(), a = activities[stage], r = d.reflect || {};
+  const pred = a.predict.find(p => p[0] === d.prediction)?.[1] || '';
+  const label = (kind, v) => a.reflect[kind].find(x => x[0] === v)?.[1];
+  const chips = kind => `<div id="reflect-${kind}" class="card-options chips">${a.reflect[kind].map(([v, l]) => `<button type="button" class="opt chip" data-reflect="${kind}" data-value="${v}" aria-pressed="${r[kind] === v}">${escape(l)}</button>`).join('')}</div>`;
+  const slot = (kind, ph) => r[kind] ? `<button type="button" class="slot filled" data-reslot="${kind}">${escape(label(kind, r[kind]))}</button>` : `<span class="slot">${ph}</span>`;
+  return `<div class="qcard reflect" data-card="reflect"><p class="kicker">✓ 检验通过 · 用句块说一句收获（只记录，不打分）</p>
+    <p class="sentence">我原来以为「${escape(pred)}」，<br>实验中我看到 ${slot('saw', '……')}，<br>所以我认为 ${slot('so', '……')}。</p>
+    ${!r.saw ? chips('saw') : !r.so ? chips('so') : '<button type="button" id="reflect-done" class="go-btn">就这样说 ✓</button>'}</div>`;
 }
 function summaryHtml() {
   const d = draft(), passed = passedNow(stage), m = R.messages[stage];
-  const errors = reviewed[stage] ? R.assess(stage, { ...d, submitted: true }).errors : [];
-  const designBad = stage === 'design' && errors.includes(m.design);
-  if (passed) return `<div class="qcard summary" data-card="summary"><p class="kicker">本站已通过</p><h2>${escape(takeaways[stage])}</h2><button type="button" id="next" class="go-btn">回到地图 →</button></div>`;
+  const designBad = reviewed[stage] && stage === 'design' && !R.assess(stage, { ...d, submitted: true }).parts.design;
+  if (passed && !d.reflectDone) return reflectHtml();
+  if (passed) { const n = starsOf(stage); return `<div class="qcard summary" data-card="summary"><p class="kicker">本站已通过 · 证据星 <span class="stars">${starText(n)}</span></p><h2>${escape(takeaways[stage])}</h2><button type="button" id="next" class="go-btn">回到地图 →</button></div>`; }
   if (designBad) return `<div class="qcard summary needs-revision" data-card="summary"><p class="kicker">方案需要调整</p><h2>${escape(m.design)}</h2><button type="button" id="back-to-experiment" class="go-btn">回到种植园改方案</button></div>`;
-  return `<div class="qcard summary" data-card="summary"><p class="kicker">全部选好了</p><h2>检验你的解释和实验证据是否一致</h2><button type="button" id="check" class="go-btn">检验我的解释</button><p class="note">试错不扣分，错了可以改。</p></div>`;
+  return `<div class="qcard summary" data-card="summary"><p class="kicker">全部选好了</p><h2>检验你的解释和实验证据是否一致</h2><button type="button" id="check" class="go-btn">检验我的解释</button><p class="note">第一次检验的结果会记成“首次表现”；错了可以看反馈再改，不扣积分。</p></div>`;
 }
 function renderExplain() {
   if (learningStep !== 'explain') { $('explain-layer').innerHTML = ''; return; }
-  const d = draft(), keys = cardKeys(stage, R), errors = reviewed[stage] ? R.assess(stage, { ...d, submitted: true }).errors : [];
-  const target = passedNow(stage) ? { card: 'summary' } : explainTarget(stage, d, errors, R, revisit[stage] || []);
-  const card = shownCard || target.card;
+  const d = draft(), keys = cardKeys(stage, R), target = targetNow();
+  const passed = passedNow(stage);
+  const card = passed ? 'summary' : (shownCard || target.card);
   let design = '';
   if (stage === 'design') { const ds = d.design, info = ds && R.designData[ds.data]; design = `<p class="my-design">我的方案：${ds ? `采集${info.label}，${ds.direction === 'below' ? '降到' : '升到'}${ds.threshold}${info.unit}时开水泵` : '还没有运行'}</p>`; }
-  const dots = [...keys, 'summary'].map((k, i) => `<button type="button" class="dot-btn ${k === card ? 'on' : ''} ${k !== 'summary' && cardAnswered(stage, d, k) ? 'filled' : ''} ${(revisit[stage] || []).includes(k) && reviewed[stage] ? 'wrong' : ''}" data-goto="${escape(k)}" aria-label="${k === 'summary' ? '检验' : '第' + (i + 1) + '张'}">${k === 'summary' ? '✓' : i + 1}</button>`).join('');
-  $('explain-layer').innerHTML = `<div class="explain-wrap">${design}<div class="card-dots">${dots}</div>${card === 'summary' ? summaryHtml() : cardHtml(card)}
-    <div class="card-nav"><button type="button" id="explain-back" class="ghost-btn">回去看实验</button>${card !== target.card && target.card ? '<button type="button" id="card-resume" class="ghost-btn">继续 →</button>' : ''}</div></div>`;
+  const dots = passed ? '' : [...keys, 'summary'].map((k, i) => `<button type="button" class="dot-btn ${k === card ? 'on' : ''} ${k !== 'summary' && cardAnswered(stage, d, k) ? 'filled' : ''} ${(revisit[stage] || []).includes(k) && reviewed[stage] ? 'wrong' : ''}" data-goto="${escape(k)}" aria-label="${k === 'summary' ? '检验' : '第' + (i + 1) + '张'}">${k === 'summary' ? '✓' : i + 1}</button>`).join('');
+  $('explain-layer').innerHTML = `<div class="explain-wrap">${design}<div class="card-dots">${dots}</div>${card === 'summary' || card === 'reflect' ? summaryHtml() : cardHtml(card)}
+    <div class="card-nav"><button type="button" id="explain-back" class="ghost-btn">回去看实验</button>${!passed && card !== target.card && target.card ? '<button type="button" id="card-resume" class="ghost-btn">继续 →</button>' : ''}</div></div>`;
   const L = $('explain-layer');
   L.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { shownCard = b.dataset.goto; renderExplain(); refreshGuide(); });
   L.querySelectorAll('[data-key]').forEach(b => b.onclick = () => choose(b.dataset.key, b.dataset.value, b));
+  L.querySelectorAll('[data-reflect]').forEach(b => b.onclick = () => { const dd = draft(); dd.reflect = { ...(dd.reflect || {}), [b.dataset.reflect]: b.dataset.value }; sound.play('tap'); persist(); renderExplain(); refreshGuide(); });
+  L.querySelectorAll('[data-reslot]').forEach(b => b.onclick = () => { const dd = draft(); dd.reflect = { ...(dd.reflect || {}) }; delete dd.reflect[b.dataset.reslot]; if (b.dataset.reslot === 'saw') delete dd.reflect.so; renderExplain(); refreshGuide(); });
   $('explain-back').onclick = () => setStep('experiment');
   const resume = $('card-resume'); if (resume) resume.onclick = () => { shownCard = null; renderExplain(); refreshGuide(); };
   const check = $('check'); if (check) check.onclick = submit;
   const next = $('next'); if (next) next.onclick = () => showMap();
   const back = $('back-to-experiment'); if (back) back.onclick = () => setStep('experiment');
+  const done = $('reflect-done'); if (done) done.onclick = () => { const dd = draft(); dd.reflectDone = true; persist(); renderExplain(); renderLevelChrome(); celebrate(celebrate.already); };
 }
 function choose(key, value, btn) {
   const d = draft();
-  if (key === 'transfer') d.transfer = value;
-  else if (key.startsWith('case:')) d.transfer = { ...(typeof d.transfer === 'object' ? d.transfer : {}), [key.slice(5)]: value };
-  else d.explain[key] = value;
+  if ((d.ruledOut[ruledKey(key, d)] || []).includes(value)) return;
+  if (key === 'transfer') d.transfer = value; else d.explain[key] = value;
   d.submitted = false; revisit[stage] = (revisit[stage] || []).filter(k => k !== key);
   persist(); sound.play('tap');
   btn.closest('.card-options').querySelectorAll('[data-key]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
@@ -391,24 +414,42 @@ function choose(key, value, btn) {
 function submit() {
   const d = draft(), wasAwarded = awarded(stage); d.submitted = true; reviewed[stage] = true;
   const result = R.assess(stage, d);
+  d.attempts = (d.attempts || 0) + 1;
+  // 首次提交的快照：本机显示证据星用（服务端以自己收到的首次提交为准）
+  if (!d.firstCheck) { const { firstCheck, lastTrace, ruledOut, ...snap } = d; d.firstCheck = structuredClone(snap); }
+  if (!result.pass) for (const k of result.wrong) {
+    const v = k === 'transfer' ? d.transfer : d.explain[k], rk = ruledKey(k, d);
+    if (v) d.ruledOut[rk] = [...new Set([...(d.ruledOut[rk] || []), v])];
+  }
   persist();
-  revisit[stage] = result.pass ? [] : wrongCards(stage, d, result.errors, R);
   shownCard = null;
   if (result.pass) {
+    revisit[stage] = [];
     if (local && !awarded(stage)) { state.awards.push({ stage, points: 10, created: new Date().toISOString() }); state.points = state.awards.length * 10; persist(false); }
-    renderExplain(); renderLevelChrome(); celebrate(wasAwarded);
+    sound.play('good'); pose('cheer0'); celebrate.already = wasAwarded;
+    sayText = '检验通过！最后用句块说一句你的收获。'; sayTone = 'good';
+    renderExplain(); renderLevelChrome(); refreshGuide();
   } else {
-    sound.play('bad'); sayText = `有 ${revisit[stage].length || 1} 处和实验证据对不上，已经标红。`; sayTone = 'bad';
+    revisit[stage] = result.wrong.filter(k => k !== 'transfer');
+    if (result.wrong.includes('transfer')) {
+      // 迁移题答错：换成等价的另一个新情境，避免靠排除法猜中
+      d.lastTransfer = { item: d.transferItem, value: d.transfer }; d.transferItem = d.transferItem === 'A' ? 'B' : 'A'; d.transfer = ''; d.submitted = false; persist(false);
+    }
+    const n = result.wrong.length || 1;
+    sound.play('bad'); sayText = result.parts.design === false ? '浇水方案还没让湿度保持在绿色带里。' : `有 ${n} 处和你的实验证据对不上，已经标红。先读反馈，再改。`; sayTone = 'bad';
     renderExplain(); renderLevelChrome(); refreshGuide();
   }
 }
 function celebrate(already) {
-  const i = R.stageIds.indexOf(stage), last = i === R.stageIds.length - 1;
+  const i = R.stageIds.indexOf(stage), last = i === R.stageIds.length - 1, sum = summaryOf(stage), n = starsOf(stage);
   sound.play('star'); pose('cheer0');
   const frames = setInterval(() => { const img = $('celebrate').querySelector('img'); if (img) img.src = sprite(character, img.src.includes('cheer0') ? 'cheer1' : 'cheer0'); }, 380);
-  $('celebrate').innerHTML = `<div class="celebrate-card"><img src="${sprite(character, 'cheer0')}" alt="" width="96" height="128"><div class="star-burst">★ ${already ? '' : '+10'}</div>
-    <p class="kicker">第${i + 1}站 · ${places[stage].name} 完成！</p><h2>${escape(takeaways[stage])}</h2>
-    <p class="note">${already ? '本站积分之前已记录（同一轮只记一次）。' : mode === 'student' ? '实验和解释都通过，积分已记录（同一轮只记一次）。' : '演示/测试：积分只留在本页。'}</p>
+  const row = (ok, label) => `<li class="${ok ? 'got' : ''}"><b>${ok ? '★' : '☆'}</b>${label}</li>`;
+  $('celebrate').innerHTML = `<div class="celebrate-card"><img src="${sprite(character, 'cheer0')}" alt="" width="96" height="128"><div class="star-burst">${starText(n)}</div>
+    <p class="kicker">第${i + 1}站 · ${places[stage].name} 完成！${already ? '' : '积分 +10'}</p>
+    <ul class="star-rows">${row(n >= 1, '完成实验并说清楚')}${row(sum.explainFirst && sum.firstHintLevel < 3, '第一次检验，解释就和证据一致')}${row(sum.explainFirst && sum.transferFirst && sum.firstHintLevel < 3, '在此基础上，第一次就在新情境中判断正确')}</ul>
+    <h2>小递的总结：${escape(takeaways[stage])}</h2>
+    <p class="note">${already ? '本站积分之前已记录（同一轮只记一次）。' : mode === 'student' ? '积分已记录；证据星看第一次的独立表现，会显示给老师。' : '演示/测试：积分只留在本页。'}</p>
     <button type="button" id="celebrate-next" class="go-btn">${last ? '去巡查报告站 →' : '回到地图，去下一站 →'}</button></div>`;
   $('celebrate').hidden = false;
   $('celebrate-next').onclick = () => { clearInterval(frames); $('celebrate').hidden = true; showMap(last ? '五站全部完成！最后去“巡查报告站”完成20题考核。' : `太棒了！下一站：${places[R.stageIds[i + 1]].name}。`); };
@@ -432,8 +473,8 @@ $('trials-btn').onclick = () => {
 $('story-btn').onclick = () => { $('menu').hidden = true; sayText = activities[stage].story; sayTone = ''; hintText = ''; renderBubble(); };
 $('fresh').onclick = () => {
   $('menu').hidden = true;
-  if (!confirm('清空本站的实验记录和解释，重新做实验？（首次预测、已获积分和老师那里的历史记录都会保留）')) return;
-  const d = draft(); d.trials = []; d.explain = {}; d.transfer = emptyTransfer(stage); d.submitted = false; delete d.lastTrace; delete d.design; reviewed[stage] = false; revisit[stage] = [];
+  if (!confirm('清空本站的实验记录和解释，重新做实验？（首次预测、首次表现、已获积分和老师那里的历史记录都会保留）')) return;
+  const d = draft(); d.trials = []; d.explain = {}; d.transfer = ''; d.submitted = false; d.ruledOut = {}; delete d.lastTransfer; delete d.reflect; delete d.reflectDone; delete d.lastTrace; delete d.design; reviewed[stage] = false; revisit[stage] = [];
   persist(); showStage(stage);
 };
 
@@ -456,9 +497,8 @@ function refreshGuide() {
     renderBubble();
     return setFocus(next.selector && document.querySelector(next.selector), next.tip);
   }
-  if (passedNow(stage)) return setFocus($('next'), '回到地图');
-  const errors = reviewed[stage] ? R.assess(stage, { ...d, submitted: true }).errors : [];
-  const target = explainTarget(stage, d, errors, R, revisit[stage] || []);
+  const target = targetNow();
+  if (passedNow(stage)) return setFocus(document.querySelector(target.selector), target.label);
   const shown = shownCard || target.card;
   if (shown !== target.card) {
     const el = document.querySelector(`[data-card="${shown}"] .card-options`);
@@ -491,14 +531,14 @@ async function showQuiz() {
 function showEnd() {
   show('end');
   const rows = R.stages.map((s, i) => {
-    const rec = state.records?.[s.id] || {}, d = drafts[s.id] || {};
-    const first = local ? (d.submitted ? (R.assess(s.id, d).pass ? '通过' : '需修订') : '—') : rec.firstSubmitted ? (rec.firstSubmitted.assessment?.pass ? '首次即通过' : '首次需修订') : '尚无证据';
-    return `<tr><td>${i + 1} ${places[s.id].name}</td><td>${doneStage(s.id) ? '★ 已完成' : '未完成'}</td><td>${first}</td><td>${d.hints || 0}</td></tr>`;
+    const sum = summaryOf(s.id), n = starsOf(s.id);
+    const first = !sum.submitted ? '尚无证据' : sum.firstPass ? '首次即一致' : sum.explainFirst ? '解释一致，迁移需修订' : '首次需修订';
+    return `<tr><td>${i + 1} ${places[s.id].name}</td><td class="stars">${doneStage(s.id) ? starText(n) : '未完成'}</td><td>${first}</td><td>${!sum.submitted ? '—' : sum.transferFirst ? '✓ 首答正确' : sum.transferFinal ? '修订后正确' : '还没答对'}</td><td>${sum.conceptHintLevel ? '想法提示 ' + sum.conceptHintLevel + ' 级' : '无'}</td></tr>`;
   }).join('');
   const quizzes = state.quizAttempts || [], left = R.stageIds.filter(s => !doneStage(s)).length;
   $('end-page').innerHTML = `<div class="result-card report"><img src="${sprite(character, left ? 'idle' : 'cheer0')}" alt="" width="72" height="96" class="report-actor"><p class="eyebrow">巡查报告站</p><h1>${left ? `还有 ${left} 站没完成` : '你用数据解释了监测系统'}</h1><p class="score">${state.points || 0}<small> 积分</small></p>
-    <table class="end-table"><thead><tr><th>地点</th><th>状态</th><th>第一次提交</th><th>用过的提示</th></tr></thead><tbody>${rows}</tbody></table>
-    <p>积分记录的是完成了哪些地点；理解还要看你的解释和20题考核。${quizzes.length ? `已考 ${quizzes.length} 次：首次 ${quizzes[0].score} 分，最近 ${quizzes.at(-1).score} 分。` : '还没有参加20题考核。'}</p>
+    <table class="end-table"><thead><tr><th>地点</th><th>证据星</th><th>第一次检验</th><th>新情境判断</th><th>想法提示</th></tr></thead><tbody>${rows}</tbody></table>
+    <p>积分记录完成了哪些地点；证据星看第一次的独立表现（解释一致、新情境判断正确）。理解还要看20题考核。${quizzes.length ? `已考 ${quizzes.length} 次：首次 ${quizzes[0].score} 分，最近 ${quizzes.at(-1).score} 分。` : '还没有参加20题考核。'}</p>
     <div class="end-actions"><button type="button" id="end-quiz" class="go-btn">${quizzes.length ? '再考一次 · 新抽20题' : '开始20题考核'}</button><button type="button" id="end-back" class="ghost-btn">回到地图</button></div></div>`;
   $('end-quiz').onclick = showQuiz; $('end-back').onclick = () => showMap();
   refreshGuide();

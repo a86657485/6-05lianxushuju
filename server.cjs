@@ -107,7 +107,7 @@ function createService(options = {}) {
     if (e.round !== roundFor(s)) fail(409, '本次考核属于旧轮次');
     return e;
   }
-  function classPayload(classId) {
+  function classPayload(classId, full = false) {
     const round = roundOf(classId);
     const students = db.prepare('SELECT * FROM students WHERE classId=? ORDER BY rowid').all(classId)
       .filter(s => rosterIds.has(s.id) || s.manual)
@@ -115,6 +115,16 @@ function createService(options = {}) {
         s.manual = !!s.manual;
         const current = state(s);
         delete current.currentExam;
+        // 大屏只需要摘要与必要的过程记录：去掉曲线原始点，历史只留时间与结果，减轻每5秒刷新的体积（导出 full=1 保留完整记录）
+        for (const k of stages) {
+          if (full) { current.records[k].summary = rules.stageSummary(k, current.records[k], (current.awards || []).some(a => a.stage === k)); continue; }
+          const st = current.records[k];
+          for (const f of ['first', 'latest', 'firstSubmitted', 'lastSubmitted']) if (st[f]) { st[f] = { ...st[f] }; delete st[f].lastTrace; delete st[f].firstCheck; }
+          st.history = (st.history || []).map(h => ({ created: h.created, submitted: h.submitted === true, pass: !!h.assessment?.pass }));
+          st.summary = rules.stageSummary(k, st, (current.awards || []).some(a => a.stage === k));
+        }
+        current.stars = stages.reduce((n, k) => n + current.records[k].summary.stars, 0);
+        if (!full) current.quizAttempts = (current.quizAttempts || []).map(q => ({ id: q.id, score: q.score, byGoal: q.byGoal, created: q.created }));
         current.roundHistory = db.prepare('SELECT round FROM states WHERE sid=? AND round<>?').all(s.id, current.round).map(r => r.round);
         return current;
       });
@@ -140,13 +150,21 @@ function createService(options = {}) {
     const stale = !!st.latest && record.editedAt < editTime(st.latest, Date.parse(st.latest.created) || 0); // 旧设备迟到的补传不覆盖新记录
     if (!st.first && rules.predictionValues[body.stage].includes(record.prediction)) st.first = record;
     if (!stale) st.latest = record;
-    if (record.submitted === true) { if (!st.firstSubmitted) st.firstSubmitted = record; if (!stale) st.lastSubmitted = record; }
+    if (record.submitted === true) {
+      // 作答内容变了才算新的一次尝试（补写站末句块、重复补传不算）
+      const prevKey = st.lastSubmittedKey ?? null, key = rules.answerKey(record);
+      if (key !== prevKey) { st.attempts = (st.attempts || 0) + 1; st.lastSubmittedKey = key; }
+      if (!st.firstSubmitted) st.firstSubmitted = record; if (!stale) st.lastSubmitted = record;
+    }
     st.history.push(record);
     if (st.history.length > 40) st.history = st.first ? [st.first, ...st.history.filter(h => h.eventId !== st.first.eventId).slice(-39)] : st.history.slice(-40);
     if (!stale && assessment.pass && !data.awards.some(a => a.stage === body.stage)) {
       data.awards.push({ stage: body.stage, points: pointsOf(body.stage), created: now(), eventId: body.eventId });
       data.points = data.awards.reduce((n, a) => n + a.points, 0);
     }
+    // 证据摘要由服务端按规则重算：首次/最近、尝试次数、提示、误解标签、迁移、证据星
+    for (const k of stages) data.records[k].summary = rules.stageSummary(k, data.records[k], data.awards.some(a => a.stage === k));
+    data.stars = stages.reduce((n, k) => n + data.records[k].summary.stars, 0);
     db.exec('BEGIN IMMEDIATE');
     try { save(data); db.prepare('INSERT INTO events VALUES(?,?,?)').run(body.eventId, s.id, data.round); db.exec('COMMIT'); }
     catch (e) { db.exec('ROLLBACK'); throw e; }
@@ -214,7 +232,7 @@ function createService(options = {}) {
       if (p.startsWith('/api/teacher/')) {
         teacher(req);
         if (p === '/api/teacher/microphone-context' && req.method === 'GET') { const port = server.address().port; return json(res, 200, { microphoneUrl: `http://localhost:${port}/teacher-microphone`, allowedOrigins: teacherOrigins(port, networkInterfaces()) }); }
-        if (p === '/api/teacher/class' && req.method === 'GET') { const classId = url.searchParams.get('class'); if (!CLASSES.includes(classId)) fail(400, '请选择六年级班级'); return json(res, 200, classPayload(classId)); }
+        if (p === '/api/teacher/class' && req.method === 'GET') { const classId = url.searchParams.get('class'); if (!CLASSES.includes(classId)) fail(400, '请选择六年级班级'); return json(res, 200, classPayload(classId, url.searchParams.get('full') === '1')); }
         if (p === '/api/teacher/answers' && req.method === 'GET') return json(res, 200, { questions: quiz.questions, goals: quiz.groups });
         if (p === '/api/teacher/new-round' && req.method === 'POST') {
           if (!CLASSES.includes(body.classId)) fail(400, '请选择六年级班级');
@@ -241,7 +259,7 @@ function createService(options = {}) {
       const publicRoot = path.join(BASE, 'public'), file = path.resolve(publicRoot, relative);
       if (!file.startsWith(publicRoot + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) fail(404, '文件不存在');
       if (!fs.realpathSync(file).startsWith(fs.realpathSync(publicRoot) + path.sep)) fail(404, '文件不存在');
-      if (['teacher.html', 'teacher-microphone.html', 'teacher.mjs', 'teacher-microphone.mjs'].includes(path.basename(file))) teacher(req);
+      if (['teacher.html', 'teacher-microphone.html', 'teacher.mjs', 'teacher-microphone.mjs', 'demo-class.json'].includes(path.basename(file))) teacher(req);
       const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ogg': 'audio/ogg', '.webp': 'image/webp' };
       const ext = path.extname(file);
       res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream', 'Cache-Control': ['.html', '.js', '.mjs', '.css'].includes(ext) ? 'no-cache' : 'public, max-age=3600' });
