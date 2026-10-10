@@ -1,7 +1,7 @@
 /* 小递夜巡 · 小区自动管家：奖励小游戏前端。规则与计分全在 night-core.js（服务端用同一份重算）。 */
 import { api, escape, uniqueId } from '/sync.mjs?v=1';
-import { xiaodi, building, stars as starDots } from '/world-art.mjs';
-import { drawPlant } from '/game/plant-art.mjs?v=1';
+import { loadAssets } from '/game/assets.mjs?v=1';
+import { drawScene, Particles, ensureXiaodi, roundRect, label as sceneLabel } from '/game/scene-art.mjs?v=1';
 
 const N = globalThis.NightCore;
 const $ = id => document.getElementById(id);
@@ -9,7 +9,6 @@ const mode = location.pathname === '/game-test' ? 'test' : 'student';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const TPS = 12; // 每秒推进的“秒数”（数据格）
 let me = null, status = null, prog = null, L = null, sim = null, phase = 'gate', seed = 1, last = 0, acc = 0, raf = 0, lastResult = null, drag = null, hover = null;
-const imgs = {};
 
 /* ---------------- 音效：默认关闭 ---------------- */
 const sfxFiles = { good: 'confirmation_002', bad: 'error_006', star: 'maximize_006', tap: 'select_002' };
@@ -51,8 +50,8 @@ function enterGame() {
   $('sound').onclick = () => { soundOn = !soundOn; try { localStorage.setItem('lesson5-game-sound', soundOn ? 'on' : 'off'); } catch {} $('sound').textContent = soundOn ? '🔊' : '🔇'; $('sound').setAttribute('aria-pressed', soundOn); sfx('tap'); };
   $('sound').textContent = soundOn ? '🔊' : '🔇';
   $('help').onclick = () => { if (phase === 'play') pause(); intro(true); };
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100">${xiaodi(0, 0, 1)}</svg>`;
-  imgs.xiaodi = new Image(); imgs.xiaodi.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  ensureXiaodi();
+  loadAssets().then(() => { bg = null; draw(); setTimeout(draw, 80); setTimeout(draw, 300); });
   setupChart();
   new ResizeObserver(() => { fitCanvas($('scene')); fitCanvas($('chart')); bg = null; draw(); }).observe($('main'));
   addEventListener('keydown', onKey);
@@ -144,7 +143,11 @@ function explain(r) {
   }
   return out;
 }
-function starHtml(n) { return [0, 1, 2].map(i => i < n ? '★' : '<span class="off">★</span>').join(''); }
+function starHtml(n) {
+  return [0, 1, 2].map(i => i < n
+    ? '<img class="g-star-img" src="/game/assets/ui/star.png" alt="★" width="28" height="28">'
+    : '<img class="g-star-img off" src="/game/assets/ui/star_outline.png" alt="" width="28" height="28">').join('');
+}
 function showResult({ r, prev, note }) {
   const disc = prog.disc[L.id];
   const cmp = prev ? `<p class="g-compare">同一晚上次：${escape(ctrlText(prev.controls))} → <b>${prev.score}</b> 分；这次：${escape(ctrlText(sim.c))} → <b>${r.score}</b> 分。${r.score > prev.score ? '换了阈值，结果变好了！' : r.score < prev.score ? '同样的数据，换个阈值，结果就不一样。' : ''}</p>` : '';
@@ -286,8 +289,18 @@ function drawChart() {
   const g = chartGeom(), ctx = g.c.getContext('2d'); if (!L) return;
   ctx.setTransform(g.d, 0, 0, g.d, 0, 0); ctx.clearRect(0, 0, g.W, g.H);
   const { x, y, pad, W, H } = g;
+  // 图表底板
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0c1a32'); bgGrad.addColorStop(1, '#0a1528');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
   ctx.font = "12px 'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif";
-  for (const z of L.zones) { ctx.fillStyle = z.color; ctx.fillRect(pad.l, y(Math.min(L.max, z.to)), W - pad.l - pad.r, y(Math.max(L.min, z.from)) - y(Math.min(L.max, z.to))); ctx.fillStyle = '#9fb3c8'; ctx.fillText(z.label, pad.l + 6, y(Math.min(L.max, z.to)) + 14); }
+  for (const z of L.zones) {
+    const top = y(Math.min(L.max, z.to)), bot = y(Math.max(L.min, z.from));
+    ctx.fillStyle = z.color; ctx.fillRect(pad.l, top, W - pad.l - pad.r, bot - top);
+    // 区带标签小胶囊
+    ctx.fillStyle = 'rgba(8,20,40,.65)'; roundRect(ctx, pad.l + 6, top + 4, ctx.measureText(z.label).width + 12, 18, 6); ctx.fill();
+    ctx.fillStyle = '#cfe0ee'; ctx.textAlign = 'left'; ctx.fillText(z.label, pad.l + 12, top + 16);
+  }
   // 坐标
   ctx.strokeStyle = '#26405f'; ctx.fillStyle = '#9fb3c8'; ctx.lineWidth = 1; ctx.textAlign = 'right';
   for (let i = 0; i <= 4; i++) { const v = L.min + (L.max - L.min) * i / 4, yy = y(v); ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke(); ctx.fillText(Math.round(v) + (L.unit === '%' ? '%' : ''), pad.l - 6, yy + 4); }
@@ -299,11 +312,39 @@ function drawChart() {
   // 真实连续曲线：第3关运行时看不到（传感器只知道读数点），结束后揭晓
   const showTruth = L.id !== 'sample' || sim.done;
   if (rows.length > 1 && showTruth) {
-    ctx.strokeStyle = L.id === 'sample' ? 'rgba(255,255,255,.75)' : '#7fe6dc'; ctx.lineWidth = 2.2; ctx.beginPath();
-    rows.forEach((r, i) => { const yy = y(Math.max(L.min, Math.min(L.max, r.truth))); i ? ctx.lineTo(x(r.t), yy) : ctx.moveTo(x(r.t), yy); }); ctx.stroke();
+    const pts = rows.map(r => [x(r.t), y(Math.max(L.min, Math.min(L.max, r.truth)))]);
+    // 曲线下方填充
+    ctx.beginPath(); ctx.moveTo(pts[0][0], H - pad.b);
+    pts.forEach(([xx, yy]) => ctx.lineTo(xx, yy));
+    ctx.lineTo(pts.at(-1)[0], H - pad.b); ctx.closePath();
+    const fill = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
+    fill.addColorStop(0, L.id === 'sample' ? 'rgba(255,255,255,.12)' : 'rgba(127,230,220,.18)');
+    fill.addColorStop(1, 'rgba(127,230,220,0)');
+    ctx.fillStyle = fill; ctx.fill();
+    // 光晕描边
+    ctx.strokeStyle = L.id === 'sample' ? 'rgba(255,255,255,.25)' : 'rgba(127,230,220,.35)';
+    ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.beginPath();
+    pts.forEach(([xx, yy], i) => i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy)); ctx.stroke();
+    ctx.strokeStyle = L.id === 'sample' ? 'rgba(255,255,255,.9)' : '#7fe6dc';
+    ctx.lineWidth = 2.4; ctx.beginPath();
+    pts.forEach(([xx, yy], i) => i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy)); ctx.stroke();
   }
   if (L.id === 'lamp' && rows.length > 1) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.beginPath(); rows.forEach((r, i) => { const yy = y(Math.min(L.max, r.reading)); i ? ctx.lineTo(x(r.t), yy) : ctx.moveTo(x(r.t), yy); }); ctx.stroke(); }
-  if (L.id === 'sample') { for (const r of rows) if (r.reading != null) { ctx.fillStyle = r.reading > 60 ? '#ff7a7a' : '#ffd166'; ctx.beginPath(); ctx.arc(x(r.t), y(r.reading), 3.2, 0, 7); ctx.fill(); } if (sim.done) for (const e of sim.env.events) { const hit = sim.handled.has(e.from); ctx.fillStyle = hit ? '#4cd28a' : '#ff7a7a'; ctx.fillText(hit ? '✓' : '漏', x((e.from + e.to) / 2), y(e.level) - 8); } }
+  if (L.id === 'sample') {
+    for (const r of rows) if (r.reading != null) {
+      const yy = y(r.reading), xx = x(r.t), hot = r.reading > 60;
+      ctx.fillStyle = hot ? 'rgba(255,122,122,.35)' : 'rgba(255,209,102,.35)';
+      ctx.beginPath(); ctx.arc(xx, yy, 7, 0, 7); ctx.fill();
+      ctx.fillStyle = hot ? '#ff7a7a' : '#ffd166'; ctx.beginPath(); ctx.arc(xx, yy, 3.8, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    if (sim.done) for (const e of sim.env.events) {
+      const hit = sim.handled.has(e.from);
+      ctx.fillStyle = hit ? '#4cd28a' : '#ff7a7a';
+      ctx.font = "bold 13px 'PingFang SC','Microsoft YaHei',sans-serif";
+      ctx.textAlign = 'center'; ctx.fillText(hit ? '✓ 记录到' : '漏掉了', x((e.from + e.to) / 2), y(e.level) - 12);
+    }
+  }
   if (L.id === 'alarm') for (const e of sim.env.events) { if (e.from > sim.t && !sim.done) continue; if (e.kind === 'real' || sim.done) { ctx.fillStyle = e.kind === 'real' ? '#ffb4a8' : '#9fb3c8'; ctx.fillText(e.label, x((e.from + e.to) / 2), y(e.level) - 8); } }
   // 输出条：设备开着的时段
   if (rows.length) { ctx.fillStyle = L.id === 'lamp' ? 'rgba(255,209,102,.8)' : L.id === 'garden' ? 'rgba(63,193,181,.8)' : 'rgba(255,122,122,.8)'; for (const r of rows) if (r.on) ctx.fillRect(x(r.t) - 1, H - pad.b + 2, Math.max(2, x(1) - x(0) + .5), 5); }
@@ -311,8 +352,29 @@ function drawChart() {
   const lines = L.fixed ? [{ v: L.fixed.line, color: '#ff7a7a', label: L.fixed.label, fixed: true }] : L.controls.filter(d => !d.options).map(d => ({ v: sim.c[d.key], color: d.color, label: d.label, key: d.key }));
   lines.forEach((ln, i) => {
     const yy = y(ln.v); ctx.strokeStyle = ln.color; ctx.lineWidth = 2.5; ctx.setLineDash(ln.fixed ? [6, 5] : []); ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke(); ctx.setLineDash([]);
-    if (!ln.fixed) { const hy = yy + (lines.length > 1 && lines[0].v === lines[1].v ? (i ? -13 : 13) : 0); ctx.fillStyle = ln.color; roundRect(ctx, W - pad.r + 4, hy - 12, 96, 24, 9); ctx.fill(); ctx.fillStyle = '#10223a'; ctx.textAlign = 'left'; ctx.font = "bold 12px 'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif"; ctx.fillText(`⇕ ${ln.label} ${ln.v}`, W - pad.r + 10, hy + 4); ctx.font = "12px 'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif"; }
-    else { ctx.fillStyle = ln.color; ctx.textAlign = 'left'; ctx.fillText(ln.label, W - pad.r + 6, yy + 4); }
+    // 阈值线光晕
+    ctx.strokeStyle = ln.color; ctx.globalAlpha = .25; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke(); ctx.globalAlpha = 1;
+    if (!ln.fixed) {
+      const hy = yy + (lines.length > 1 && lines[0].v === lines[1].v ? (i ? -14 : 14) : 0);
+      // 拖动手柄
+      const hx = W - pad.r + 8, hw = 92, hh = 28;
+      roundRect(ctx, hx, hy - hh / 2, hw, hh, 10);
+      const hg = ctx.createLinearGradient(hx, hy - hh / 2, hx, hy + hh / 2);
+      hg.addColorStop(0, ln.color); hg.addColorStop(1, ln.color + 'cc');
+      ctx.fillStyle = ln.color; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+      // 中间小圆点暗示可拖
+      ctx.fillStyle = '#10223a'; ctx.beginPath(); ctx.arc(hx + 14, hy, 5, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + 14, hy - 2, 1.5, 0, 7); ctx.arc(hx + 14, hy + 2, 1.5, 0, 7); ctx.fill();
+      ctx.fillStyle = '#10223a'; ctx.textAlign = 'left';
+      ctx.font = "bold 12px 'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif";
+      ctx.fillText(`${ln.label} ${ln.v}`, hx + 24, hy + 4);
+      ctx.font = "12px 'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif";
+      // 线上菱形抓手
+      ctx.fillStyle = ln.color; ctx.beginPath();
+      ctx.moveTo(pad.l + 8, yy); ctx.lineTo(pad.l + 16, yy - 7); ctx.lineTo(pad.l + 24, yy); ctx.lineTo(pad.l + 16, yy + 7); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.stroke();
+    } else { ctx.fillStyle = ln.color; ctx.textAlign = 'left'; ctx.fillText(ln.label, W - pad.r + 6, yy + 4); }
   });
   // 当前时刻
   if (sim.t && !sim.done) { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(x(sim.t - 1), pad.t); ctx.lineTo(x(sim.t - 1), H - pad.b); ctx.stroke(); }
@@ -328,97 +390,21 @@ function drawChart() {
     } else { sc.hidden = false; sc.style.left = x(tt) + 'px'; sc.style.top = pad.t + 30 + 'px'; sc.textContent = '传感器只知道读数点；跑完这一晚再看真实曲线'; }
   } else sc.hidden = true;
 }
-function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
 /* ---------------- 场景 ---------------- */
 let bg = null;
-function backdrop(W, H) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 800 430" preserveAspectRatio="xMidYMax slice"><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1630"/><stop offset="1" stop-color="#1d3a66"/></linearGradient></defs><rect width="800" height="430" fill="url(#s)"/>${starDots(70, 5 + L.n, 800, 220)}<circle cx="690" cy="62" r="26" fill="#fff6d8" opacity=".9"/>${building(20, 360, 150, 230, 3 + L.n, { lit: .4 })}${building(600, 360, 180, 260, 9 + L.n, { lit: .35, color: '#1a3150' })}<rect y="360" width="800" height="70" fill="#14263f"/></svg>`;
-  const im = new Image(); im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); return im;
-}
+const particles = new Particles();
+let lastPart = performance.now();
 function draw(now = performance.now()) {
   if (!L || !sim) return;
   drawChart();
   const c = $('scene'), d = c._d || 1, W = c.width / d, H = c.height / d, ctx = c.getContext('2d');
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.clearRect(0, 0, W, H);
-  bg ||= backdrop(Math.round(W), Math.round(H));
-  const s = Math.max(W / 800, H / 430), ox = (W - 800 * s) / 2, oy = H - 430 * s;
-  if (bg.complete) ctx.drawImage(bg, 0, 0, W, H); else bg.onload = () => draw();
-  ctx.save(); ctx.translate(ox, oy); ctx.scale(s, s);
-  const row = sim.rows.at(-1) || null, t = now / 1000;
-  ({ garden: sceneGarden, lamp: sceneLamp, sample: sceneSample, alarm: sceneAlarm })[L.id](ctx, row, t);
-  ctx.restore();
-}
-function label(ctx, text, x, y, color = '#e8f1f7', size = 15) { ctx.font = `bold ${size}px 'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif`; ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(text, x, y); }
-function drawXiaodi(ctx, x, y, sc = 1) { if (imgs.xiaodi?.complete) ctx.drawImage(imgs.xiaodi, x, y, 80 * sc, 100 * sc); }
-function sceneGarden(ctx, row, t) {
-  const m = row ? row.truth : sim.value, w = row?.weather || 'sunny';
-  // 花坛
-  ctx.fillStyle = '#5C4033'; ctx.beginPath(); ctx.ellipse(400, 372, 230, 34, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = `rgba(30,90,140,${Math.min(.75, m / 130)})`; ctx.beginPath(); ctx.ellipse(400, 372, 225 * (m / 100), 30 * (m / 100), 0, 0, 7); ctx.fill();
-  const mood = m < 30 ? 'dry' : m > 85 ? 'wet' : 'ok';
-  const prog = Math.min(1, sim.stats.good / (L.ticks * .8));
-  for (const [px, k] of [[330, .8], [400, 1], [470, .85]]) { ctx.save(); ctx.translate(px, 362); ctx.scale(k, k); drawPlant(ctx, 0, 0, prog, mood, t * 1000 + px); ctx.restore(); }
-  // 水泵与水管
-  ctx.fillStyle = '#3fc1b5'; ctx.fillRect(140, 318, 46, 46); ctx.fillStyle = '#0b1630'; ctx.fillRect(148, 326, 30, 12);
-  label(ctx, '水泵', 163, 392, '#9fb3c8', 13);
-  ctx.strokeStyle = '#2b8f86'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(186, 330); ctx.quadraticCurveTo(250, 280, 300, 300); ctx.stroke();
-  if (row?.on) { ctx.fillStyle = '#7fd8ff'; for (let i = 0; i < 9; i++) { const p = (t * 2 + i / 9) % 1; ctx.beginPath(); ctx.arc(300 + p * 70, 300 + p * p * 55, 3, 0, 7); ctx.fill(); } label(ctx, '浇水中', 163, 308, '#7fe6dc', 14); }
-  // 湿度传感器
-  ctx.fillStyle = '#ffd166'; ctx.fillRect(552, 330, 8, 40); ctx.beginPath(); ctx.arc(556, 326, 9, 0, 7); ctx.fill();
-  label(ctx, `湿度 ${row ? row.reading : '—'}%`, 556, 310, '#ffd166', 15);
-  // 天气
-  if (w === 'rain') { ctx.strokeStyle = 'rgba(150,200,255,.7)'; ctx.lineWidth = 1.5; for (let i = 0; i < 60; i++) { const x = (i * 53 + t * 220) % 800, y = (i * 97 + t * 400) % 360; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 4, y + 12); ctx.stroke(); } label(ctx, '🌧 下雨：湿度往上涨', 400, 40, '#9fd8ff', 18); }
-  else if (w === 'heat') { label(ctx, '🌡 闷热：蒸发加快，湿度掉得更快', 400, 40, '#ffb38a', 18); }
-  else label(ctx, '晴：水分慢慢蒸发', 400, 40, '#9fb3c8', 16);
-  label(ctx, mood === 'dry' ? '太干了！' : mood === 'wet' ? '太湿了！' : '舒服', 400, 150, mood === 'ok' ? '#4cd28a' : '#ff9a8e', 18);
-  drawXiaodi(ctx, 640, 270, .9);
-}
-function sceneLamp(ctx, row, t) {
-  const lux = row ? row.truth : sim.env.truth[0], dark = 1 - Math.min(1, lux / 420);
-  ctx.fillStyle = `rgba(0,4,16,${dark * .55})`; ctx.fillRect(0, 0, 800, 430);
-  // 路灯
-  ctx.fillStyle = '#5c6f86'; ctx.fillRect(392, 150, 12, 210); ctx.fillRect(392, 150, 70, 8);
-  const on = row?.on;
-  if (on) { const gr = ctx.createRadialGradient(460, 170, 4, 460, 260, 170); gr.addColorStop(0, 'rgba(255,220,130,.85)'); gr.addColorStop(1, 'rgba(255,220,130,0)'); ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(445, 165); ctx.lineTo(370, 365); ctx.lineTo(560, 365); ctx.closePath(); ctx.fill(); }
-  ctx.fillStyle = sim.broken ? '#555' : on ? '#ffe9a8' : '#8a96a6'; ctx.beginPath(); ctx.ellipse(460, 164, 18, 9, 0, 0, 7); ctx.fill();
-  if (sim.broken) label(ctx, '💥 灯泡烧坏了', 460, 130, '#ff9a8e', 17);
-  // 磨损格
-  for (let i = 0; i < L.wearLimit; i++) { ctx.fillStyle = i < sim.switches ? '#ff7a7a' : '#2c4766'; ctx.fillRect(330 + i * 14, 392, 10, 10); }
-  label(ctx, '灯泡寿命（每开关一次少一格）', 400, 420, '#9fb3c8', 12);
-  // 车灯事件
-  for (const e of sim.env.events) if (e.kind === 'car' && row && row.t >= e.from - 6 && row.t < e.to + 6) { const p = (row.t - e.from + 6) / (e.to - e.from + 12); const cx = 820 - p * 900; ctx.fillStyle = '#c94b4b'; ctx.fillRect(cx, 335, 70, 24); ctx.fillStyle = 'rgba(255,250,200,.55)'; ctx.beginPath(); ctx.moveTo(cx, 342); ctx.lineTo(cx - 140, 320); ctx.lineTo(cx - 140, 365); ctx.closePath(); ctx.fill(); label(ctx, '车灯晃过，读数突然变大', 400, 80, '#ffe9a8', 16); }
-  // 光照传感器
-  ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(398, 146, 7, 0, 7); ctx.fill();
-  label(ctx, `光照 ${row ? row.reading : '—'} lux`, 300, 146, '#ffd166', 15);
-  if (row && row.truth < 80 && !on) label(ctx, '好黑，看不清路！', 220, 300, '#ff9a8e', 16);
-  ctx.save(); ctx.globalAlpha = .95; drawXiaodi(ctx, 180 + Math.sin(t) * 6, 268, .9); ctx.restore();
-}
-function sceneSample(ctx, row, t) {
-  // 监测站
-  ctx.fillStyle = '#5c6f86'; ctx.fillRect(392, 190, 14, 170); ctx.fillStyle = '#3fc1b5'; roundRect(ctx, 360, 160, 80, 44, 10); ctx.fill();
-  ctx.fillStyle = '#0b1630'; ctx.fillRect(370, 170, 60, 16); label(ctx, '噪声传感器', 400, 226, '#9fb3c8', 13);
-  if (row?.reading != null) { ctx.strokeStyle = row.on ? '#ff7a7a' : '#7fe6dc'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(400, 182, 30, 0, 7); ctx.stroke(); label(ctx, `读到 ${row.reading} dB`, 400, 146, row.on ? '#ff9a8e' : '#7fe6dc', 16); }
-  else if (row) label(ctx, sim.battery ? '休眠中（这一秒不读数）' : '没电了', 400, 146, '#9fb3c8', 14);
-  // 电池
-  ctx.strokeStyle = '#9fb3c8'; ctx.lineWidth = 2; ctx.strokeRect(560, 170, 150, 34); ctx.fillStyle = sim.battery > 30 ? '#4cd28a' : '#ff7a7a'; ctx.fillRect(563, 173, 144 * sim.battery / L.battery, 28);
-  label(ctx, `电池 ${sim.battery}/${L.battery}`, 635, 228, '#e8f1f7', 15);
-  // 声源（真实声音，不管有没有被读到）
-  for (const e of sim.env.events) if (row && row.t >= e.from && row.t < e.to) { label(ctx, `📢 ${e.label}`, 180, 260, '#ffb4a8', 20); for (let i = 1; i <= 3; i++) { ctx.strokeStyle = `rgba(255,150,140,${.7 - i * .18})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(180, 300, 20 * i + (t * 30 % 20), -0.9, 0.9); ctx.stroke(); } }
-  label(ctx, `已记录 ${sim.stats.caught} · 漏掉 ${sim.stats.missed}`, 400, 60, '#e8f1f7', 18);
-  drawXiaodi(ctx, 470, 262, .9);
-}
-function sceneAlarm(ctx, row, t) {
-  // 广场：音响、楼、小递
-  ctx.fillStyle = '#21385a'; ctx.fillRect(80, 330, 640, 30);
-  ctx.fillStyle = '#ff7a7a'; ctx.beginPath(); ctx.arc(120, 150, 10, 0, 7); ctx.fill(); label(ctx, '噪声监测屏', 120, 130, '#9fb3c8', 13);
-  ctx.fillStyle = '#0b1630'; roundRect(ctx, 60, 160, 120, 60, 10); ctx.fill(); label(ctx, row ? `${row.reading} dB` : '— dB', 120, 200, row?.on ? '#ff7a7a' : '#7fe6dc', 22);
-  const ev = row && sim.env.events.find(e => row.t >= e.from && row.t < e.to);
-  if (ev) { label(ctx, (ev.kind === 'real' ? '📢 ' : '🔈 ') + ev.label, 560, 250, ev.kind === 'real' ? '#ffb4a8' : '#cfe0ee', 20); for (let i = 1; i <= 3; i++) { ctx.strokeStyle = `rgba(255,150,140,${.7 - i * .18})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(560, 300, 18 * i + (t * 30 % 18), -0.9, 0.9); ctx.stroke(); } }
-  const going = row?.on, x = going ? 470 : 230;
-  drawXiaodi(ctx, x + (going ? Math.sin(t * 8) * 4 : 0), 250, .95);
-  label(ctx, going ? '小递出发劝导！' : '小递待命', x + 40, 240, going ? '#ffd36b' : '#9fb3c8', 15);
-  label(ctx, `劝导 ${sim.stats.caught} · 误报 ${sim.stats.falseAlarm} · 漏报 ${sim.stats.missed}`, 400, 60, '#e8f1f7', 18);
+  const dt = Math.min(0.05, (now - lastPart) / 1000); lastPart = now;
+  particles.update(dt);
+  const row = sim.rows.at(-1) || null;
+  drawScene(ctx, W, H, L, sim, row, now / 1000, particles);
+  particles.draw(ctx);
 }
 
 /* 走查与教师演示：window.__nightgame 只读状态 + 快进 */
