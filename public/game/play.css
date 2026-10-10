@@ -41,3 +41,10 @@ button.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid 
 .mode-toggle button{flex:1;padding:10px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:var(--ink);cursor:pointer;font-size:13px;font-weight:700}
 .mode-toggle button.on{background:linear-gradient(135deg,#3fc1b5,#2a9fd6);color:#042028;border-color:transparent}
 .mode-explain{font-size:11px;color:var(--muted);line-height:1.45;margin:0 0 10px}
+.drive-cue{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:7;background:rgba(4,12,28,.82);border:1px solid rgba(63,193,181,.45);border-radius:18px;padding:18px 28px;text-align:center;pointer-events:auto;cursor:pointer;box-shadow:0 12px 40px rgba(0,0,0,.45);transition:opacity .35s,transform .35s}
+.drive-cue b{display:block;font-size:20px;margin-bottom:6px;color:#7fe6dc}
+.drive-cue span{font-size:14px;color:#cfe0ee}
+.drive-cue kbd{display:inline-block;min-width:22px;padding:2px 7px;border-radius:6px;background:#1a2740;border:1px solid #3a5070}
+.drive-cue.hide{opacity:0;pointer-events:none;transform:translate(-50%,-50%) scale(.96)}
+#race-canvas:focus{outline:2px solid rgba(63,193,181,.5);outline-offset:-2px}
+.play-wrap{position:relative}

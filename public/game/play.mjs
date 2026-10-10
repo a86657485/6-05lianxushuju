@@ -144,8 +144,21 @@ function startRace(ctrl) {
   </div>`;
   renderLiveControls();
   bindModeToggle();
-  document.getElementById('btn-abort').onclick = () => { cancelAnimationFrame(raf); showHub(); };
+  document.getElementById('btn-abort').onclick = () => { cancelAnimationFrame(raf); bindKeys(false); showHub(); };
   bindKeys(true);
+  const canvas = document.getElementById('race-canvas');
+  canvas.tabIndex = 0;
+  canvas.setAttribute('aria-label', '赛道画面，点一下后按方向键开车');
+  const cue = document.createElement('div');
+  cue.id = 'drive-cue';
+  cue.className = 'drive-cue';
+  cue.innerHTML = '<b>点一下画面</b><span>然后按 <kbd>↑</kbd> 出发（或点「自动驾驶」）</span>';
+  document.getElementById('play-wrap').appendChild(cue);
+  const arm = () => { canvas.focus({ preventScroll: true }); cue.classList.add('hide'); };
+  canvas.addEventListener('pointerdown', arm);
+  cue.addEventListener('pointerdown', arm);
+  window.__driveCue = cue;
+  setTimeout(() => canvas.focus({ preventScroll: true }), 50);
   raf = requestAnimationFrame(loop);
 }
 
@@ -235,6 +248,7 @@ function loop(ts) {
   }
   drawRace();
   updateHud();
+  if (window.__driveCue && (sim.speed > 2 || sim.auto || keys.u)) window.__driveCue.classList.add('hide');
   if (sim.done) { cancelAnimationFrame(raf); bindKeys(false); finishRace(); return; }
   raf = requestAnimationFrame(loop);
 }
@@ -422,38 +436,48 @@ function drawRace() {
   const track = sim.track;
   const segN = track.length;
   const trackLen = segN * SEG_LEN;
-  // player position along infinite looping track (metres → segment index)
-  const position = ((sim.pos % trackLen) + trackLen) % trackLen;
+  // ★ 关键：物理赛道 L.trackLen（约280m）映射到整圈视觉赛道，一圈物理=一整圈画面，路纹才会往镜头冲
+  const lap = sim.pos / Math.max(1, L.trackLen);
+  const position = ((lap % 1) * trackLen + trackLen) % trackLen;
   const baseIdx = Math.floor(position / SEG_LEN) % segN;
   const basePct = (position % SEG_LEN) / SEG_LEN;
-  const playerZ = CAM_H; // camera sits this far "behind" projection math like racer's playerZ≈cameraHeight
-  // current segment world Y for camera
+  const playerZ = CAM_H;
   const seg0 = track[baseIdx], seg1 = track[(baseIdx + 1) % segN];
   const playerY = seg0.y + (seg1.y - seg0.y) * basePct;
+  // 速度感：镜头微颤 + 行驶颠簸
+  const spdN = Math.min(1, sim.speed / L.maxSpeed);
+  const bob = Math.sin(sim.t * 0.9) * 2.2 * spdN + Math.sin(sim.t * 2.3) * 1.1 * spdN;
+  const shake = (Math.random() - 0.5) * 1.4 * spdN * spdN;
 
   const zNow = R.zoneAt(L, (sim.pos / L.trackLen) % 1);
   const themeNow = zoneTheme(zNow.id, L);
 
+  ctx.save();
+  ctx.translate(shake, bob);
+
   // sky
   ctx.fillStyle = themeNow.sky;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(-4, -4, W + 8, H + 8);
   if (bgImg) {
-    const off = ((position * 0.02) + sim.x * 40) % bgImg.width;
-    ctx.globalAlpha = L.id === 'sample' ? 0.15 : (L.id === 'rain' ? 0.35 : 0.5);
+    // 视差：随前进与弯道横向滚动
+    const curveBias = (seg0.curve || 0) * 18;
+    const off = ((position * 0.08) + sim.x * 50 + curveBias) % bgImg.width;
+    ctx.globalAlpha = L.id === 'sample' ? 0.15 : (L.id === 'rain' ? 0.35 : 0.55);
     ctx.drawImage(bgImg, -off, 0, bgImg.width, H * 0.55);
     ctx.drawImage(bgImg, -off + bgImg.width, 0, bgImg.width, H * 0.55);
     ctx.globalAlpha = 1;
   }
-  // stars / rain
+  // stars / rain（随位置滚动）
   if (L.id !== 'sample') {
     ctx.fillStyle = '#fff';
-    for (let i = 0; i < 50; i++) ctx.fillRect((i * 97 + position * 0.05) % W, (i * 53) % (H * 0.42), 2, 2);
+    for (let i = 0; i < 50; i++) ctx.fillRect((i * 97 + position * 0.35) % W, (i * 53 + bob) % (H * 0.42), 2, 2);
   }
   if (L.id === 'rain') {
-    ctx.strokeStyle = 'rgba(180,210,255,.35)'; ctx.lineWidth = 1;
-    for (let i = 0; i < 40; i++) {
-      const rx = (i * 137 + sim.t * 9) % W, ry = (i * 89 + sim.t * 14) % H;
-      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 12); ctx.stroke();
+    ctx.strokeStyle = 'rgba(180,210,255,.45)'; ctx.lineWidth = 1;
+    const rainBoost = 8 + spdN * 20;
+    for (let i = 0; i < 55; i++) {
+      const rx = (i * 137 + sim.t * rainBoost) % W, ry = (i * 89 + sim.t * (14 + spdN * 30)) % H;
+      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 14 + spdN * 10); ctx.stroke();
     }
   }
   if (L.id === 'sample') {
@@ -491,32 +515,30 @@ function drawRace() {
     const theme = zoneTheme(seg.zoneId, L);
     drawSegment(ctx, W, p1.x, p1.y, p1.w, p2.x, p2.y, p2.w, fog, theme, dark, LANES);
 
-    // roadside trees / columns (every few segs)
-    if (sprites && n > 2 && n % 7 === 0 && L.id !== 'sample') {
+    // 路边物体绑在世界段 idx 上，才会随前进冲向镜头（绑 n 会像贴纸贴在屏上）
+    const { idx } = projected[k];
+    if (sprites && idx % 6 === 0 && L.id !== 'sample' && n > 1) {
       const sc = p1.scale;
-      const spr = (n % 14 === 0) ? SPR.PALM : SPR.TREE;
+      const spr = (idx % 12 === 0) ? SPR.PALM : SPR.TREE;
       const destW = spr.w * sc * 0.35;
       const destH = spr.h * sc * 0.35;
-      const side = (n % 2 === 0) ? -1 : 1;
+      const side = (idx % 2 === 0) ? -1 : 1;
       const sx = p1.x + side * p1.w * 1.35 - (side < 0 ? destW : 0);
       const sy = p1.y - destH;
-      if (sy < p1.y) ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, sx, sy, destW, destH);
+      if (destH > 4) ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, sx, sy, destW, destH);
     }
-    // tunnel pillars
-    if (sprites && L.id === 'sample' && n > 2 && n % 5 === 0) {
+    if (sprites && L.id === 'sample' && idx % 4 === 0 && n > 1) {
       const sc = p1.scale;
       const spr = SPR.COLUMN;
       const destW = spr.w * sc * 0.4, destH = spr.h * sc * 0.4;
       ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, p1.x - p1.w * 1.2 - destW, p1.y - destH, destW, destH);
       ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, p1.x + p1.w * 1.2, p1.y - destH, destW, destH);
     }
-    // speed-limit billboards
-    if (n > 4 && n % 15 === 0) {
-      const z = R.zoneAt(L, ((baseIdx + n) / segN) % 1);
+    if (idx % 12 === 0 && n > 2) {
+      const z = R.zoneAt(L, (idx / segN) % 1);
       const lim = limitForZone(z);
-      const side = (n % 30 === 0) ? -1 : 1;
-      const sx = p1.x + side * p1.w * 1.15;
-      drawSpeedSign(ctx, sx, p1.y, p1.scale, lim, theme);
+      const side = (idx % 24 === 0) ? -1 : 1;
+      drawSpeedSign(ctx, p1.x + side * p1.w * 1.15, p1.y, p1.scale, lim, theme);
     }
   }
 
@@ -537,9 +559,27 @@ function drawRace() {
   if (sprites) ctx.drawImage(sprites, spr.x, spr.y, spr.w, spr.h, px, py, pw, ph);
   else { ctx.fillStyle = '#3fc1b5'; ctx.fillRect(px, py, pw, ph); }
 
-  // HUD ribbon: current zone
+  // 高速速度线（运动线索）
+  if (spdN > 0.35) {
+    ctx.strokeStyle = `rgba(255,255,255,${0.12 + spdN * 0.25})`;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 14; i++) {
+      const ang = (i / 14) * Math.PI - Math.PI / 2;
+      const len = 30 + spdN * 90 + (i % 3) * 12;
+      const cx = W / 2 + Math.sin(ang) * (40 + i * 8);
+      const cy = H * 0.55 + Math.cos(ang) * 20;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.sin(ang) * len, cy + Math.cos(ang) * len * 0.35);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore(); // end bob/shake
+
+  // HUD ribbon: current zone（不随抖动）
   ctx.fillStyle = 'rgba(0,0,0,.45)';
-  ctx.fillRect(12, 12, 220, 36);
+  ctx.fillRect(12, 12, 240, 36);
   ctx.fillStyle = '#fff'; ctx.font = 'bold 14px sans-serif';
   ctx.fillText(`${zNow.label} · 限速 ${Math.round(limitForZone(zNow))}`, 22, 36);
 
