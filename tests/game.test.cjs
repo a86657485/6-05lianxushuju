@@ -192,6 +192,35 @@ test('超速弹窗：replay 拒绝阅读不足的日志；合法 viol 会记入 
   } finally { await s.stop(); }
 });
 
+test('超速答对后继续开：不结束本关，油门仍在时车还往前走', () => {
+  const sim = R.create('school', 2, { a: 40 });
+  R.control(sim, { u: 1, auto: 0 });
+  let hit = null;
+  for (let i = 0; i < 200 && !hit; i++) {
+    R.tick(sim);
+    hit = R.shouldQuiz(sim);
+  }
+  assert.ok(hit, '先超速');
+  assert.equal(sim.done, false);
+  const before = sim.pos;
+  sim.paused = true;
+  R.tick(sim);
+  assert.equal(sim.pos, before, '弹窗暂停时不往前开、也不结算');
+  sim.paused = false;
+  R.control(sim, {
+    viol: {
+      zone: hit.zone, zoneLabel: hit.zoneLabel, speed: hit.speed, limit: hit.limit, goal: hit.goal,
+      reads: [{ ms: 3000 }], answers: [{ qid: 't1', choice: 1, correct: true }]
+    }
+  });
+  assert.equal(sim.done, false, '答对不能直接过关');
+  assert.ok(sim.speed <= hit.limit + 0.01, '车速被压回限速');
+  R.control(sim, { u: 1 });
+  for (let i = 0; i < 40; i++) R.tick(sim);
+  assert.equal(sim.done, false, '答对后本关还在进行');
+  assert.ok(sim.pos > before + 5, '按着加速会继续往前开');
+});
+
 test('超速边沿：shouldQuiz 在超过阈值时触发，冷却期内不重复', () => {
   const sim = R.create('school', 2, { a: 40 });
   R.control(sim, { u: 1, auto: 0 });

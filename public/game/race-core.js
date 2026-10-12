@@ -276,8 +276,10 @@
   function applyViolation(sim, v) {
     const info = validateViolation(v);
     const limit = Number(v.limit);
+    // 压到限速线上，但不要松开玩家还按着的油门，也不要靠刹车回差把车刹停。
     if (Number.isFinite(limit)) sim.speed = Math.min(sim.speed, Math.max(0, limit));
-    sim.keys.u = 0;
+    sim.braking = false;
+    sim.warn = false;
     sim.overLimit = false;
     sim.violCooldownUntil = sim.t + COOLDOWN_TICKS;
     if (v.zone) sim.zoneViolated[v.zone] = true;
@@ -350,7 +352,7 @@
 
 
   function tick(sim) {
-    if (sim.done) return snapshot(sim);
+    if (sim.done || sim.paused) return snapshot(sim);
     const L = sim.L, dt = 1 / FPS;
     const progress = (sim.pos / L.trackLen) % 1;
     const z = zoneAt(L, progress);

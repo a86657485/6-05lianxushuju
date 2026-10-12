@@ -242,6 +242,8 @@ function pushKeysIfChanged() {
 function loop(ts) {
   if (!sim || (phase !== 'race' && phase !== 'viol')) return;
   if (phase === 'viol') {
+    // 弹窗期间冻结模拟时钟，避免答完题后把暂停的几秒一次补完、直接结算过关。
+    lastTs = 0; acc = 0;
     drawRace();
     updateHud();
     raf = requestAnimationFrame(loop);
@@ -274,7 +276,7 @@ function loop(ts) {
 function openViolation(trig) {
   phase = 'viol';
   sim.paused = true;
-  keys.u = keys.d = keys.l = keys.r = 0;
+  // 保留方向键状态：松开会由 keyup 清掉；仍按着加速则答对后接着开。
   const goalId = trig.goal;
   violSession = {
     trig,
@@ -394,14 +396,18 @@ function finishViolation() {
   };
   log.push(payload);
   R.control(sim, payload); // applyViolation via applyLogEntry
-  // 确保速度压到限速
   if (sim.speed > vs.trig.limit) sim.speed = vs.trig.limit;
+  sim.braking = false;
+  sim.warn = false;
+  // 把弹窗期间仍按着的方向键写回，下一帧继续加速，而不是在限速上停住并结束本关。
+  R.control(sim, { u: keys.u, d: keys.d, l: keys.l, r: keys.r });
   const modal = document.getElementById('viol-modal');
   if (modal) modal.hidden = true;
   violSession = null;
   phase = 'race';
   sim.paused = false;
   lastTs = 0; acc = 0;
+  pushKeysIfChanged();
   document.getElementById('race-canvas')?.focus({ preventScroll: true });
 }
 
