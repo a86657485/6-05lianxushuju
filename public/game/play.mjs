@@ -351,28 +351,38 @@ function showViolQuiz() {
     <p style="font-size:12px;color:var(--muted);margin:0">按 1 / 2 / 3 / 4 选择</p>
   </div>`;
   const choose = (i) => {
+    if (vs.step !== 'quiz') return;
     const ok = i === vs.q.answer;
     vs.answers.push({ qid: vs.q.id, choice: i, correct: ok });
+    vs.step = 'answered';
+    modal.querySelectorAll('#viol-opts button').forEach(b => { b.disabled = true; });
     const fb = document.getElementById('viol-fb');
+    const actions = document.createElement('p');
+    actions.style.textAlign = 'center';
+    actions.style.marginTop = '12px';
     if (ok) {
-      fb.className = 'viol-fb good'; fb.textContent = '✓ 正确！车速已降到限速内，继续巡查。';
-      setTimeout(finishViolation, 500);
+      fb.className = 'viol-fb good'; fb.textContent = '✓ 正确！车速已降到限速内。关掉弹窗后继续开。';
+      actions.innerHTML = '<button class="primary" id="viol-close" type="button">关掉，继续开</button>';
+      modal.querySelector('.viol-card').appendChild(actions);
+      document.getElementById('viol-close').onclick = () => finishViolation();
     } else {
       fb.className = 'viol-fb bad'; fb.textContent = '✗ ' + (vs.q.tip || '再读一读知识点');
-      // 答错：重新阅读 ≥3 秒，再换题
-      setTimeout(() => {
+      actions.innerHTML = '<button class="primary" id="viol-close" type="button">再读一遍</button>';
+      modal.querySelector('.viol-card').appendChild(actions);
+      document.getElementById('viol-close').onclick = () => {
         vs.trig.knowledge = R.knowledgeFor(vs.goalId, { speed: vs.trig.speed, limit: vs.trig.limit, zoneLabel: vs.trig.zoneLabel, n: vs.answers.length });
         showViolRead();
-      }, 900);
+      };
     }
   };
   modal.querySelectorAll('#viol-opts button').forEach(b => b.onclick = () => choose(Number(b.dataset.i)));
   if (window.__violKey) window.removeEventListener('keydown', window.__violKey);
   window.__violKey = (e) => {
-    if (vs.step !== 'quiz') return;
-    if (e.key >= '1' && e.key <= '4') {
+    if (vs.step === 'quiz' && e.key >= '1' && e.key <= '4') {
       const i = Number(e.key) - 1;
       if (i < vs.q.options.length) choose(i);
+    } else if (vs.step === 'answered' && (e.key === 'Enter' || e.key === 'Escape')) {
+      document.getElementById('viol-close')?.click();
     }
   };
   window.addEventListener('keydown', window.__violKey);
