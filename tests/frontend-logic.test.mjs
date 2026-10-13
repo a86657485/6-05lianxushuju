@@ -231,3 +231,17 @@ test('两星出门门禁：未满两星不可视为通关解锁；二刷可挣�
     assert.ok(tip.lines[0], id + ' 有默认引导');
   }
 });
+
+test('二刷小提示可手动关掉，关掉后不遮挡操作，可从 HUD 再打开', async () => {
+  const fs = await import('node:fs'), path = await import('node:path'), { fileURLToPath } = await import('node:url');
+  const root = fileURLToPath(new URL('../public/', import.meta.url));
+  const app = fs.readFileSync(path.join(root, 'app.mjs'), 'utf8');
+  assert.match(app, /id="retry-guide-close"/, '小提示卡片上有「关掉」按钮');
+  assert.match(app, /guideClosed\[stage\] = true/, '点关掉后记住本站已关，不再自动弹回来挡住控件');
+  assert.match(app, /guideClosed\[st\] = false/, '重新进站时小提示重新出现');
+  assert.match(app, /function renderGuideBtn/, '关掉后由 HUD 按钮负责重新打开');
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /id="guide-btn"/, 'HUD 上有「二刷小提示」入口');
+  const css = fs.readFileSync(path.join(root, 'game.css'), 'utf8');
+  assert.ok(css.includes('.retry-guide-close') && css.includes('.hud-btn.guide-btn'), '关闭按钮与 HUD 入口都有样式');
+});

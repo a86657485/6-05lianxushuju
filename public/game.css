@@ -405,4 +405,10 @@ a.cta{background:linear-gradient(180deg,#ffe28f,#ffc94a)!important;color:#1c2a3a
 .retry-guide-card b{display:block;font-size:15px;margin-bottom:4px;color:#8a5a00}
 .retry-guide-card ol{margin:0;padding-left:1.2em;font-size:14px;line-height:1.45}
 .retry-guide-card .note{margin:6px 0 0;font-size:12px;color:var(--muted)}
+.retry-guide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.retry-guide-head b{flex:1;min-width:0}
+button.retry-guide-close{flex:none;width:28px;height:28px;min-height:0;padding:0;border-radius:50%;font-size:14px;line-height:1;background:#fff;border:1.5px solid #e0a800;color:#8a5a00}
+button.retry-guide-close:hover:not(:disabled){background:#ffe9b0;border-color:#c58f00}
+button.hud-btn.guide-btn{width:auto;padding:0 12px;border-radius:999px;font-size:13px;font-weight:700;background:#fff8e8;border:2px solid #e0a800;color:#8a5a00}
+button.hud-btn.guide-btn:hover:not(:disabled){background:#ffefc8;border-color:#c58f00;color:#7a4d00}
 .level-main{position:relative}
