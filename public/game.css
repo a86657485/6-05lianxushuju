@@ -400,15 +400,12 @@ a.cta{background:linear-gradient(180deg,#ffe28f,#ffc94a)!important;color:#1c2a3a
 /* 两星出门门禁与二刷引导 */
 #to-map.locked-exit{opacity:.55;filter:grayscale(.3);cursor:not-allowed}
 #to-map.locked-exit:hover{background:transparent}
-.retry-guide{position:absolute;left:12px;right:12px;bottom:8px;z-index:9;pointer-events:none}
-.retry-guide-card{pointer-events:auto;max-width:min(520px,96%);margin:0 auto;background:#fff8e8;border:2px solid #e0a800;border-radius:16px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);color:var(--ink)}
+.retry-guide{position:fixed;right:12px;bottom:12px;z-index:30;width:min(300px,38vw);pointer-events:none}
+.retry-guide.collapsed{width:auto}
+.retry-guide-card{pointer-events:auto;position:relative;background:#fff8e8;border:2px solid #e0a800;border-radius:14px;padding:8px 30px 8px 12px;box-shadow:0 6px 18px rgba(0,0,0,.22);color:var(--ink);max-height:40vh;overflow:auto}
+.retry-guide-close{position:absolute;top:4px;right:4px;width:24px;height:24px;border:0;border-radius:50%;background:#f3d27a;color:#5a3a00;font-size:14px;line-height:24px;padding:0;cursor:pointer}
+.retry-guide-open{pointer-events:auto;border:2px solid #e0a800;background:#fff8e8;color:#8a5a00;border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.18)}
 .retry-guide-card b{display:block;font-size:15px;margin-bottom:4px;color:#8a5a00}
 .retry-guide-card ol{margin:0;padding-left:1.2em;font-size:14px;line-height:1.45}
 .retry-guide-card .note{margin:6px 0 0;font-size:12px;color:var(--muted)}
-.retry-guide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-.retry-guide-head b{flex:1;min-width:0}
-button.retry-guide-close{flex:none;width:28px;height:28px;min-height:0;padding:0;border-radius:50%;font-size:14px;line-height:1;background:#fff;border:1.5px solid #e0a800;color:#8a5a00}
-button.retry-guide-close:hover:not(:disabled){background:#ffe9b0;border-color:#c58f00}
-button.hud-btn.guide-btn{width:auto;padding:0 12px;border-radius:999px;font-size:13px;font-weight:700;background:#fff8e8;border:2px solid #e0a800;color:#8a5a00}
-button.hud-btn.guide-btn:hover:not(:disabled){background:#ffefc8;border-color:#c58f00;color:#7a4d00}
 .level-main{position:relative}

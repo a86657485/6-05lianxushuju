@@ -25,7 +25,6 @@ const STEPS = [['predict', '想一想'], ['experiment', '做一做'], ['explain'
 let state = null, drafts = {}, stage = 'flow', learningStep = 'predict', experiment = null, screen = 'login';
 let opLevel = {}, revisit = {}, reviewed = {}, quiz = null, live = null, liveAt = 0, liveTimer = null, mic = null, micLevel = null;
 let character = 'maleAdventurer', avatarAt = 'flow', rpg = null, shownCard = null, sayText = '', sayTone = '', hintText = '', mapNote = '';
-let guideClosed = {}; // 「二刷小提示」被学生手动关掉的站：关掉后不遮挡操作，可从 HUD 按钮再打开
 let login = { classId: '', id: '', manual: false };
 
 const sync = new ClassroomSync((message, pending) => { $('sync-status').textContent = message; $('sync-status').className = 'hud-sync' + (pending ? ' warning' : ''); },
@@ -75,7 +74,7 @@ function show(id) {
   if (id !== 'level') { experiment?.destroy(); experiment = null; }
   if (id !== 'map' && rpg) { rpg.destroy(); rpg = null; }
   $('celebrate').hidden = true;
-  renderHud(); refreshGuide(); renderGuideBtn();
+  renderHud(); refreshGuide();
 }
 
 /* ---------------- 登录 ---------------- */
@@ -301,7 +300,6 @@ function showStage(st) {
   $('chapter').textContent = `第${i + 1}站 · ${places[st].name}`; $('stage-title').textContent = a.title;
   sayText = ''; sayTone = ''; hintText = ''; shownCard = null; $('trial-pop').hidden = true;
   $('test-answer-panel').hidden = true;
-  guideClosed[st] = false; // 重新进站时小提示重新出现
   experiment = new experimentClasses[st](ctx); experiment.mount($('scene'), $('controls'));
   const p = learningProgress(st, d, R);
   learningStep = p.initialStep;
@@ -470,11 +468,13 @@ function submit() {
     }
     const n = result.wrong.length || 1;
     sound.play('bad'); sayText = result.parts.design === false ? '你选定的阈值还不能只在喧哗时提示。' : `有 ${n} 处和你的实验证据对不上，已经标红。先读反馈，再改。`; sayTone = 'bad';
-    if ((d.attempts || 0) >= 1) sayText += guideClosed[stage] ? ' 需要时点右上角「二刷小提示」。' : ' 看一看「二刷小提示」。';
+    if ((d.attempts || 0) >= 1) sayText += ' 需要时点「💡提示」。';
     renderExplain(); renderLevelChrome(); renderRetryGuide(); refreshGuide();
   }
 }
 
+let hintOpen = false, hintStage = null;
+function hintKey() { return R.hintSeenKey('lesson5', state.student.id, stage); }
 function renderRetryGuide() {
   let box = $('retry-guide');
   if (!box) {
@@ -485,25 +485,26 @@ function renderRetryGuide() {
     const main = $('level-main') || $('level');
     if (main) main.appendChild(box);
   }
-  // 小提示只在「二刷且还没满两星」时有意义；学生点关闭后本站不再自动弹出，避免挡住下面要操作的控件。
-  if (screen !== 'level' || !guidanceOn() || canExitStage(stage) || guideClosed[stage]) { box.hidden = true; renderGuideBtn(); return; }
+  if (hintStage !== stage) { hintOpen = false; hintStage = stage; }
+  if (screen !== 'level' || !guidanceOn() || canExitStage(stage)) { box.hidden = true; return; }
+  const st = storage(), key = hintKey();
+  if (R.shouldAutoShowHint(st, key)) { hintOpen = true; R.markHintShown(st, key); }
+  box.hidden = false;
+  box.classList.toggle('collapsed', !hintOpen);
+  if (!hintOpen) {
+    box.innerHTML = '<button type="button" class="retry-guide-open" id="retry-guide-open" aria-label="打开提示">💡提示</button>';
+    $('retry-guide-open').onclick = () => { hintOpen = true; renderRetryGuide(); };
+    return;
+  }
   const d = draft();
   const result = d.submitted ? R.assess(stage, d) : null;
   const tags = result && !result.pass ? result.tags : (summaryOf(stage).tagsLatest || summaryOf(stage).tagsFirst || []);
   const g = R.retryGuidance(stage, { ...d, _tags: tags });
-  box.hidden = false;
-  box.innerHTML = `<div class="retry-guide-card"><div class="retry-guide-head"><b>${escape(g.title)}</b><button type="button" id="retry-guide-close" class="retry-guide-close" aria-label="关掉二刷小提示" title="关掉（下面被挡住的控件就能点了）">✕</button></div><ol>${g.lines.map(l => `<li>${escape(l)}</li>`).join('')}</ol><p class="note">不给标准答案；对照你自己的实验数据再选一次。</p></div>`;
-  $('retry-guide-close').onclick = () => { sound.play('tap'); guideClosed[stage] = true; renderRetryGuide(); };
-  renderGuideBtn();
+  box.innerHTML = `<div class="retry-guide-card" role="dialog" aria-label="${escape(g.title)}"><button type="button" class="retry-guide-close" id="retry-guide-close" aria-label="关闭提示" title="关闭（Esc）">✕</button><b>${escape(g.title)}</b><ol>${g.lines.map(l => `<li>${escape(l)}</li>`).join('')}</ol><p class="note">不给标准答案；对照你自己的实验数据再选一次。</p></div>`;
+  $('retry-guide-close').onclick = closeRetryGuide;
 }
-/** 关掉小提示后，HUD 上留一个「二刷小提示」按钮：不再占用画面，想再看时点它。 */
-function renderGuideBtn() {
-  const btn = $('guide-btn'); if (!btn) return;
-  const relevant = screen === 'level' && guidanceOn() && !canExitStage(stage) && !!guideClosed[stage];
-  btn.hidden = !relevant;
-  btn.textContent = '二刷小提示';
-  if (relevant) btn.onclick = () => { guideClosed[stage] = false; renderRetryGuide(); };
-}
+function closeRetryGuide() { hintOpen = false; renderRetryGuide(); const b = $('retry-guide-open'); if (b) b.focus(); }
+document.addEventListener('keydown', e => { const box = $('retry-guide'); if (e.key === 'Escape' && hintOpen && box && !box.hidden) { e.stopPropagation(); closeRetryGuide(); } }, true);
 
 function celebrate(already) {
   const i = R.stageIds.indexOf(stage), last = i === R.stageIds.length - 1, sum = summaryOf(stage), n = starsOf(stage);

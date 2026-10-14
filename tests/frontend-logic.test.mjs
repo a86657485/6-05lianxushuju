@@ -232,16 +232,22 @@ test('两星出门门禁：未满两星不可视为通关解锁；二刷可挣�
   }
 });
 
-test('二刷小提示可手动关掉，关掉后不遮挡操作，可从 HUD 再打开', async () => {
-  const fs = await import('node:fs'), path = await import('node:path'), { fileURLToPath } = await import('node:url');
-  const root = fileURLToPath(new URL('../public/', import.meta.url));
-  const app = fs.readFileSync(path.join(root, 'app.mjs'), 'utf8');
-  assert.match(app, /id="retry-guide-close"/, '小提示卡片上有「关掉」按钮');
-  assert.match(app, /guideClosed\[stage\] = true/, '点关掉后记住本站已关，不再自动弹回来挡住控件');
-  assert.match(app, /guideClosed\[st\] = false/, '重新进站时小提示重新出现');
-  assert.match(app, /function renderGuideBtn/, '关掉后由 HUD 按钮负责重新打开');
-  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  assert.match(html, /id="guide-btn"/, 'HUD 上有「二刷小提示」入口');
-  const css = fs.readFileSync(path.join(root, 'game.css'), 'utf8');
-  assert.ok(css.includes('.retry-guide-close') && css.includes('.hud-btn.guide-btn'), '关闭按钮与 HUD 入口都有样式');
+
+
+import * as fs from 'node:fs';
+test('二刷引导：每生每关只自动弹一次、可关闭（✕/Esc）、💡提示按需打开、停靠角落不挡操作', () => {
+  const mem = new Map(); const store = { getItem: k => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => mem.set(k, String(v)) };
+  const k1 = R.hintSeenKey('lesson', 'stu1', R.stageIds[0]), k2 = R.hintSeenKey('lesson', 'stu2', R.stageIds[0]), k3 = R.hintSeenKey('lesson', 'stu1', R.stageIds[1]);
+  assert.notEqual(k1, k2); assert.notEqual(k1, k3);
+  assert.equal(R.shouldAutoShowHint(store, k1), true);
+  R.markHintShown(store, k1);
+  assert.equal(R.shouldAutoShowHint(store, k1), false, '同一学生同一关不再自动弹出');
+  assert.equal(R.shouldAutoShowHint(store, k2), true); assert.equal(R.shouldAutoShowHint(store, k3), true);
+  assert.equal(R.shouldAutoShowHint({ getItem() { throw new Error('x'); } }, k1), true);
+  const app = fs.readFileSync(new URL('../public/app.mjs', import.meta.url), 'utf8');
+  assert.match(app, /retry-guide-close[^]*✕/); assert.match(app, /Escape/); assert.match(app, /💡提示/);
+  assert.match(app, /shouldAutoShowHint\(st, key\)/);
+  const css = fs.readFileSync(new URL('../public/game.css', import.meta.url), 'utf8');
+  const rule = css.match(/\.retry-guide\{[^}]*\}/)[0];
+  assert.match(rule, /position:fixed/); assert.match(rule, /right:12px/); assert.doesNotMatch(rule, /left:/);
 });

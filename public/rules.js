@@ -448,7 +448,13 @@
   };
   for (const [k, e] of Object.entries(examples)) { e.submitted = true; e.reflect = { saw: reflectOptions[k].saw[0], so: reflectOptions[k].so[0] }; }
 
+  // 二刷引导：每位学生每关只自动弹一次，之后由「💡提示」按钮按需打开
+  function hintSeenKey(prefix, studentId, stage) { return `${prefix}-hint-seen:${studentId}:${stage}`; }
+  function shouldAutoShowHint(store, key) { try { return !store.getItem(key); } catch { return true; } }
+  function markHintShown(store, key) { try { store.setItem(key, '1'); } catch {} }
+
   return {
+    hintSeenKey, shouldAutoShowHint, markHintShown,
     stages, stageIds, NIGHT_LIMIT, squareScenes, measureSquare, overLimit,
     nightNoise, minuteLabel, alarmEpisodes, countAlarms,
     GOALS, FOCI, schematicParts, schematicAnswer, schematicOk,
